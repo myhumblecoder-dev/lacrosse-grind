@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -27,7 +28,48 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col relative">
+        <main className="flex-1">
+          {children}
+        </main>
+
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-3 px-4">
+          <ul className="flex justify-around items-center max-w-md mx-auto">
+            <li>
+              <Link 
+                href="/"
+                className="flex flex-col items-center text-xs font-medium text-gray-600 hover:text-black"
+              >
+                <span>Today</span>
+              </Link>
+            </li>
+            <li>
+              <Link 
+                href="/lanes"
+                className="flex flex-col items-center text-xs font-medium text-gray-600 hover:text-black"
+              >
+                <span>Lanes</span>
+              </Link>
+            </li>
+            <li>
+              <Link 
+                href="/boss-battles"
+                className="flex flex-col items-center text-xs font-medium text-gray-600 hover:text-black"
+              >
+                <span>Boss Battles</span>
+              </Link>
+            </li>
+            <li>
+              <Link 
+                href="/reflection"
+                className="flex flex-col items-center text-xs font-medium text-gray-600 hover:text-black"
+              >
+                <span>Reflect</span>
+              </Link>
+            </li>
+          </ul>
+        </nav>
+      </body>
     </html>
   );
 }
