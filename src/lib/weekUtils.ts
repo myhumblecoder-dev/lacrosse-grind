@@ -1,16 +1,26 @@
-import { startOfWeek, addDays, differenceInDays, startOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 
-const EPOCH_START = startOfDay(new Date('2024-01-01T00:00:00Z'));
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Epoch: Monday 2024-01-01 (UTC). All week math is UTC-based so results are
+// stable regardless of the machine's local timezone. (The test suite pins TZ
+// to a non-UTC zone precisely to keep this honest — see package.json.)
+const EPOCH_START = Date.UTC(2024, 0, 1);
+
+function utcMidnight(date: Date) {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
 
 export function getWeekStart(date: Date) {
-  return startOfWeek(date, { weekStartsOn: 1 });
+  const dayStart = utcMidnight(date);
+  const dow = new Date(dayStart).getUTCDay(); // 0=Sun … 6=Sat
+  const daysSinceMonday = (dow + 6) % 7;
+  return new Date(dayStart - daysSinceMonday * DAY_MS);
 }
 
 export function get2WeekBlockStart(date: Date) {
-  const daysSinceEpoch = differenceInDays(startOfDay(date), EPOCH_START);
+  const daysSinceEpoch = Math.floor((utcMidnight(date) - EPOCH_START) / DAY_MS);
   const blockIndex = Math.floor(daysSinceEpoch / 14);
-  return addDays(EPOCH_START, blockIndex * 14);
+  return new Date(EPOCH_START + blockIndex * 14 * DAY_MS);
 }
 
 export function formatWeekLabel(date: Date) {

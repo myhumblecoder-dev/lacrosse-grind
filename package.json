@@ -7,7 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest",
+    "test": "TZ=Pacific/Kiritimati vitest",
     "postinstall": "prisma generate"
   },
   "dependencies": {
