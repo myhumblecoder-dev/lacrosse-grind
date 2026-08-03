@@ -18,6 +18,7 @@ export default async function ReflectionPage() {
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
       <h1 className="text-2xl font-bold">Weekly Reflection</h1>
+      <p className="mt-1 text-sm text-zinc-500">A weekly space to reflect on how training felt. Your coach summary keeps it effort-focused.</p>
       <ReflectionForm
         weekStarting={weekStart}
         existingNote={reflection?.playerNote}

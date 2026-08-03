@@ -27,6 +27,7 @@ export default async function DashboardPage() {
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
       <h1 className="text-2xl font-bold">Today</h1>
+      <p className="mt-1 text-sm text-zinc-500">Your daily check-in. Show up for each lane — effort and consistency are the only score, and rest days count too.</p>
       {lanes.length === 0 && (
         <p className="text-zinc-500">No lanes yet — add one on the Lanes page.</p>
       )}
