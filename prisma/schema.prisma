@@ -7,57 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Lane — a skill domain Eddie trains (e.g. "Stick Skills", "Shooting", "Conditioning")
 model Lane {
-  id                String             @id
-  name              String
-  checkIns          CheckIn[]
-  bossBattles       BossBattle[]
-  weeklyReflections WeeklyReflection[]
-  streakFreezes     StreakFreeze[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  emoji         String   @default("🥍")
+  targetPerWeek Int      @default(5) // days/week target frequency
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  checkIns    CheckIn[]
+  bossBattles BossBattle[]
+
+  @@index([isActive])
 }
 
+// CheckIn — Eddie's daily self-report for a lane session
 model CheckIn {
-  id        String   @id
+  id        String   @id @default(cuid())
   laneId    String
   lane      Lane     @relation(fields: [laneId], references: [id])
-  userId    String
-  timestamp DateTime @default(now())
-  metadata  Json?
+  date      DateTime // UTC midnight of the check-in day
+  isRest    Boolean  @default(false) // true = rest/sleep entry (counts as a hit)
+  note      String? // optional free-text (effort note, not a grade)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@unique([laneId, date])
+  @@index([date])
+  @@index([laneId, date])
 }
 
+// BossBattle — every 2-week skill test for a lane
 model BossBattle {
-  id          String   @id
-  laneId      String
-  lane        Lane     @relation(fields: [laneId], references: [id])
-  difficulty  Int
-  description String
-  isCompleted Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  laneId       String
+  lane         Lane     @relation(fields: [laneId], references: [id])
+  weekStarting DateTime // UTC midnight of the Monday starting the 2-week block
+  selfReport   String // Eddie's free-text description of how it went
+  coachNote    String? // AI-generated coach note (process-framed, never graded)
+  createdAt    DateTime @default(now())
+
+  @@unique([laneId, weekStarting])
+  @@index([weekStarting])
 }
 
+// WeeklyReflection — Eddie's weekly free-text entry + AI summary
 model WeeklyReflection {
-  id        String   @id
-  laneId    String
-  lane      Lane     @relation(fields: [laneId], references: [id])
-  content   String
-  rating    Int
-  week      Int
-  year      Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  weekStarting DateTime // UTC midnight of the Monday
+  playerNote   String // Eddie's reflection
+  coachSummary String? // AI-generated summary (effort-framed)
+  createdAt    DateTime @default(now())
+
+  @@unique([weekStarting])
+  @@index([weekStarting])
 }
 
+// StreakFreeze — banked freeze tokens (one guilt-free miss per token)
 model StreakFreeze {
-  id        String   @id
+  id        String    @id @default(cuid())
   laneId    String
-  lane      Lane     @relation(fields: [laneId], references: [id])
-  userId    String
-  usedAt    DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  usedDate  DateTime? // null = still available
+  createdAt DateTime  @default(now())
+
+  @@index([laneId])
 }
