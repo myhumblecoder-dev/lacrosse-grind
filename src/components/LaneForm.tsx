@@ -11,7 +11,24 @@ interface LaneFormProps {
   onSubmit?: () => void
 }
 
-const DEFAULT_EMOJI = "🥍"
+// Single-code-point emojis only (no variation selectors / ZWJ sequences) so every
+// value is <= 2 UTF-16 units and satisfies the schema's `emoji` .max(2). Built from
+// code points to avoid stray variation-selector bytes sneaking into the source.
+const EMOJI_OPTIONS: { cp: number; label: string }[] = [
+  { cp: 0x1f94d, label: "Lacrosse" },
+  { cp: 0x1f3c3, label: "Running" },
+  { cp: 0x1f3cb, label: "Weights" },
+  { cp: 0x1f4aa, label: "Strength" },
+  { cp: 0x1f3af, label: "Shooting" },
+  { cp: 0x1f945, label: "Goals" },
+  { cp: 0x1f938, label: "Agility" },
+  { cp: 0x26a1, label: "Speed" },
+  { cp: 0x1f9e0, label: "Film / Mental" },
+  { cp: 0x1f634, label: "Recovery" },
+  { cp: 0x1f525, label: "Conditioning" },
+]
+
+const DEFAULT_EMOJI = String.fromCodePoint(EMOJI_OPTIONS[0].cp)
 
 export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
   const [name, setName] = useState("")
@@ -50,7 +67,7 @@ export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="p-2 border rounded-md text-black"
+          className="rounded-md border p-2 text-black"
           placeholder="e.g. Stick Skills"
         />
       </div>
@@ -58,17 +75,24 @@ export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
       <div className="flex gap-4">
         <div className="flex flex-col gap-2">
           <label htmlFor="lane-emoji" className="text-sm font-medium">
-            Emoji
+            Icon
           </label>
-          <input
+          <select
             id="lane-emoji"
             data-testid="lane-emoji-input"
-            type="text"
             value={emoji}
             onChange={(e) => setEmoji(e.target.value)}
-            maxLength={2}
-            className="w-16 p-2 border rounded-md text-black"
-          />
+            className="rounded-md border p-2 text-black"
+          >
+            {EMOJI_OPTIONS.map((o) => {
+              const ch = String.fromCodePoint(o.cp)
+              return (
+                <option key={o.cp} value={ch}>
+                  {ch} {o.label}
+                </option>
+              )
+            })}
+          </select>
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor="lane-target" className="text-sm font-medium">
@@ -82,7 +106,7 @@ export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
             max={7}
             value={targetPerWeek}
             onChange={(e) => setTargetPerWeek(Number(e.target.value))}
-            className="w-20 p-2 border rounded-md text-black"
+            className="w-20 rounded-md border p-2 text-black"
           />
         </div>
       </div>
@@ -96,7 +120,7 @@ export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
       <button
         type="submit"
         disabled={isPending}
-        className="px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50"
+        className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
       >
         {isPending ? "Adding..." : "Add Lane"}
       </button>
