@@ -66,7 +66,7 @@ export default function CheckInCard({
                 })
               }
               disabled={checkedIn}
-              className="flex-1 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none transition-opacity"
+              className="flex-1 px-4 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:pointer-events-none transition-colors"
             >
               I showed up
             </button>
@@ -79,7 +79,7 @@ export default function CheckInCard({
                 })
               }
               disabled={checkedIn}
-              className="flex-1 px-4 py-2 text-sm font-medium rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              className="flex-1 px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:pointer-events-none transition-colors"
             >
               Rest day
             </button>
