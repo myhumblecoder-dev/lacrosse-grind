@@ -18,6 +18,7 @@ interface LaneListProps {
  * This is defined within the component file as a server action.
  */
 async function updateLaneAction(formData: FormData) {
+  'use server';
   const laneId = formData.get('laneId') as string;
   const isActive = formData.get('isActive') === 'true';
 
