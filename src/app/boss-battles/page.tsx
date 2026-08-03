@@ -23,6 +23,7 @@ export default async function BossBattlesPage() {
       <h1 className="text-2xl font-bold">
         Boss Battles — {formatWeekLabel(blockStart)}
       </h1>
+      <p className="mt-1 text-sm text-zinc-500">Every two weeks, test a skill and describe how it went. The coach note is about your process — never a grade.</p>
       {lanes.length === 0 && (
         <p className="text-zinc-500">No active lanes yet.</p>
       )}

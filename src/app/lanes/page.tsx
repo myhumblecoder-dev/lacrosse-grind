@@ -13,6 +13,7 @@ export default async function LanesPage() {
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
       <h1 className="text-2xl font-bold">Lanes</h1>
+      <p className="mt-1 text-sm text-zinc-500">The skills you are training. Add a lane, set a weekly target, and toggle which ones are active.</p>
       <LaneList lanes={lanes} />
       <div className="border-t pt-6">
         <h2 className="mb-3 text-lg font-semibold">Add a lane</h2>

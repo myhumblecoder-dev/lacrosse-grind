@@ -29,6 +29,7 @@ export default async function HistoryPage() {
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
       <h1 className="text-2xl font-bold">History</h1>
+      <p className="mt-1 text-sm text-zinc-500">Your last 30 days at a glance — green for a session, blue for a rest day. Watch the consistency stack up.</p>
       {lanes.map((lane) => {
         const streak = computeStreak(
           lane.checkIns.map((c) => ({ date: c.date, isRest: c.isRest })),
