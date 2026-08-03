@@ -29,7 +29,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col relative">
-        <main className="flex-1">
+        <main className="flex-1 pb-24">
           {children}
         </main>
 
@@ -65,6 +65,14 @@ export default function RootLayout({
                 className="flex flex-col items-center text-xs font-medium text-gray-600 hover:text-black"
               >
                 <span>Reflect</span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/history"
+                className="flex flex-col items-center text-xs font-medium text-gray-600 hover:text-black"
+              >
+                <span>History</span>
               </Link>
             </li>
           </ul>
