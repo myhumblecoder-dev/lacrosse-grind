@@ -61,7 +61,7 @@ export default function ReflectionForm({
           data-testid="reflection-input"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="min-h-[150px] p-2 border rounded-md text-black"
+          className="min-h-[150px] p-2 border rounded-md"
           placeholder="How was your week?"
         />
       </div>
@@ -75,7 +75,7 @@ export default function ReflectionForm({
       {coachSummary && (
         <div
           data-testid="coach-summary"
-          className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800"
+          className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md text-blue-200"
         >
           🧠 Coach says: {coachSummary}
         </div>

@@ -13,45 +13,48 @@ const actions = () => ({ updateLane: vi.fn(), setActive: vi.fn(), deleteLane: vi
 describe('LaneList', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('renders lanes with active/inactive badges', () => {
+  it('renders lanes with a toggle reflecting active state', () => {
     render(<LaneList lanes={LANES} {...actions()} />)
     expect(screen.getByText('Running')).toBeInTheDocument()
     expect(screen.getByText('Swimming')).toBeInTheDocument()
-    expect(screen.getByText('Active')).toBeInTheDocument()
-    expect(screen.getByText('Inactive')).toBeInTheDocument()
+    const switches = screen.getAllByRole('switch')
+    expect(switches[0]).toHaveAttribute('aria-checked', 'true')
+    expect(switches[1]).toHaveAttribute('aria-checked', 'false')
   })
 
-  it('Toggle calls setActive with the flipped value', async () => {
+  it('toggling the switch calls setActive with the flipped value', async () => {
     const user = userEvent.setup()
     const a = actions()
     render(<LaneList lanes={[LANES[0]]} {...a} />)
-    await user.click(screen.getByRole('button', { name: /toggle/i }))
+    await user.click(screen.getByRole('switch', { name: /toggle running/i }))
     expect(a.setActive).toHaveBeenCalledWith('1', false)
   })
 
-  it('Delete calls deleteLane after confirm', async () => {
+  it('delete opens the confirm modal, and confirming calls deleteLane', async () => {
     const user = userEvent.setup()
     const a = actions()
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<LaneList lanes={[LANES[0]]} {...a} />)
+    await user.click(screen.getByRole('button', { name: /delete running/i }))
+    // custom modal, not window.confirm
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(a.deleteLane).toHaveBeenCalledWith('1')
   })
 
-  it('Delete does nothing when confirm is cancelled', async () => {
+  it('cancelling the modal does not delete', async () => {
     const user = userEvent.setup()
     const a = actions()
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     render(<LaneList lanes={[LANES[0]]} {...a} />)
-    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: /delete running/i }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(a.deleteLane).not.toHaveBeenCalled()
   })
 
-  it('Edit then Save calls updateLane with the draft', async () => {
+  it('edit then save calls updateLane with the draft', async () => {
     const user = userEvent.setup()
     const a = actions()
     render(<LaneList lanes={[LANES[0]]} {...a} />)
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: /edit running/i }))
     const nameInput = screen.getByTestId('edit-name-1')
     await user.clear(nameInput)
     await user.type(nameInput, 'Sprints')

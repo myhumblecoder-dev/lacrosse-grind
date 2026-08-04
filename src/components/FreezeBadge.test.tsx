@@ -15,6 +15,6 @@ describe('FreezeBadge', () => {
   it('renders no freezes text when zero', async () => {
     render(<FreezeBadge availableFreezes={0} />)
     expect(screen.getByText('No freezes')).toBeInTheDocument()
-    expect(screen.getByText('No freezes')).toHaveClass('text-gray-400')
+    expect(screen.getByText('No freezes')).toHaveClass('text-zinc-500')
   })
 })

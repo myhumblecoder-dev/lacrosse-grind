@@ -67,7 +67,7 @@ export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="rounded-md border p-2 text-black"
+          className="rounded-md border p-2"
           placeholder="e.g. Stick Skills"
         />
       </div>
@@ -82,7 +82,7 @@ export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
             data-testid="lane-emoji-input"
             value={emoji}
             onChange={(e) => setEmoji(e.target.value)}
-            className="rounded-md border p-2 text-black"
+            className="rounded-md border p-2"
           >
             {EMOJI_OPTIONS.map((o) => {
               const ch = String.fromCodePoint(o.cp)
@@ -106,7 +106,7 @@ export default function LaneForm({ createLane, onSubmit }: LaneFormProps) {
             max={7}
             value={targetPerWeek}
             onChange={(e) => setTargetPerWeek(Number(e.target.value))}
-            className="w-20 rounded-md border p-2 text-black"
+            className="w-20 rounded-md border p-2"
           />
         </div>
       </div>

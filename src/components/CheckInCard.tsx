@@ -33,7 +33,7 @@ export default function CheckInCard({
   const date = new Date(today)
 
   return (
-    <div className="flex flex-col gap-4 p-4 border rounded-xl bg-card text-card-foreground shadow-sm">
+    <div className="flex flex-col gap-4 p-4 border rounded-xl bg-zinc-900 text-zinc-100 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-lg font-bold">
           <span>{lane.emoji}</span>
@@ -41,7 +41,7 @@ export default function CheckInCard({
           <StreakBadge streak={streak} />
         </div>
         {isRest && (
-          <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-zinc-800 text-zinc-300">
             Rest Day
           </span>
         )}
