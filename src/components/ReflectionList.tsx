@@ -9,6 +9,7 @@ interface Reflection {
   weekLabel: string
   playerNote: string
   coachSummary: string | null
+  isCurrentWeek?: boolean
 }
 
 interface ReflectionListProps {
@@ -25,13 +26,20 @@ export default function ReflectionList({
   editReflection,
   deleteReflection,
 }: ReflectionListProps) {
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingId, setEditing0] = useState<string | null>(null)
+  // Note: The previous error showed a collision or typo in the build log.
+  // I will use the standard setter name and ensure it is correctly scoped.
+  const [editingIdState, setEditingIdState] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
   const [summaries, setSummaries] = useState<Record<string, string | null>>({})
   const [confirmItem, setConfirmItem] = useState<Reflection | null>(null)
 
+  // Re-implementing with clean state to avoid the 'setEditingId' not found error
+  // from the previous failed attempt's broken logic.
+  const [activeEditingId, setActiveEditingId] = useState<string | null>(null)
+
   function startEdit(r: Reflection) {
-    setEditingId(r.id)
+    setActiveEditingId(r.id)
     setDraft(r.playerNote)
   }
 
@@ -44,7 +52,7 @@ export default function ReflectionList({
         setSummaries((s) => ({ ...s, [id]: res.coachSummary! }))
       }
     } finally {
-      setEditingId(null)
+      setActiveEditingId(null)
     }
   }
 
@@ -60,8 +68,15 @@ export default function ReflectionList({
           return (
             <li key={r.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-zinc-400">{r.weekLabel}</span>
-                {editingId !== r.id && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-400">{r.weekLabel}</span>
+                  {r.isCurrentWeek && (
+                    <span className="rounded-full bg-emerald-600/20 px-2 py-0.5 text-xs text-emerald-300">
+                      This week
+                    </span>
+                  )}
+                </div>
+                {activeEditingId !== r.id && (
                   <div className="flex items-center gap-2">
                     <button
                       aria-label={`Edit reflection ${r.weekLabel}`}
@@ -81,7 +96,7 @@ export default function ReflectionList({
                 )}
               </div>
 
-              {editingId === r.id ? (
+              {activeEditingId === r.id ? (
                 <div className="mt-3 space-y-2">
                   <textarea
                     data-testid={`edit-reflection-${r.id}`}
@@ -97,7 +112,7 @@ export default function ReflectionList({
                       Save
                     </button>
                     <button
-                      onClick={() => setEditingId(null)}
+                      onClick={() => setActiveEditingId(null)}
                       className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800"
                     >
                       Cancel
