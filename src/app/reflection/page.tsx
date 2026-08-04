@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/db"
-import { getWeekStart } from "@/lib/weekUtils"
+import { getWeekStart, formatWeekLabel } from "@/lib/weekUtils"
 import { createReflection } from "@/app/actions/createReflection"
+import { editReflection } from "@/app/actions/editReflection"
+import { deleteReflection } from "@/app/actions/deleteReflection"
 import ReflectionForm from "@/components/ReflectionForm"
+import ReflectionList from "@/components/ReflectionList"
 
 export const dynamic = "force-dynamic"
 
@@ -11,9 +14,22 @@ function utcMidnight(d: Date): Date {
 
 export default async function ReflectionPage() {
   const weekStart = getWeekStart(utcMidnight(new Date()))
+
   const reflection = await prisma.weeklyReflection.findUnique({
     where: { weekStarting: weekStart },
   })
+
+  const past = await prisma.weeklyReflection.findMany({
+    where: { weekStarting: { lt: weekStart } },
+    orderBy: { weekStarting: "desc" },
+  })
+
+  const pastReflections = past.map((r) => ({
+    id: r.id,
+    weekLabel: formatWeekLabel(r.weekStarting),
+    playerNote: r.playerNote,
+    coachSummary: r.coachSummary,
+  }))
 
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
@@ -29,6 +45,23 @@ export default async function ReflectionPage() {
           return { coachSummary: r.ok ? r.coachSummary : undefined }
         }}
       />
+
+      {pastReflections.length > 0 && (
+        <section className="space-y-3 border-t border-zinc-800 pt-6">
+          <h2 className="text-lg font-semibold">Past reflections</h2>
+          <ReflectionList
+            reflections={pastReflections}
+            editReflection={async (id, playerNote) => {
+              "use server"
+              return editReflection(id, playerNote)
+            }}
+            deleteReflection={async (id) => {
+              "use server"
+              return deleteReflection(id)
+            }}
+          />
+        </section>
+      )}
     </main>
   )
 }
