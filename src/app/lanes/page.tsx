@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db"
 import { createLane } from "@/app/actions/createLane"
+import { updateLane } from "@/app/actions/updateLane"
+import { setLaneActive } from "@/app/actions/setLaneActive"
+import { deleteLane } from "@/app/actions/deleteLane"
 import LaneList from "@/components/LaneList"
 import LaneForm from "@/components/LaneForm"
 
@@ -13,8 +16,25 @@ export default async function LanesPage() {
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
       <h1 className="text-2xl font-bold">Lanes</h1>
-      <p className="mt-1 text-sm text-zinc-500">The skills you are training. Add a lane, set a weekly target, and toggle which ones are active.</p>
-      <LaneList lanes={lanes} />
+      <p className="mt-1 text-sm text-zinc-500">
+        The skills you are training. Add a lane, set a weekly target, and toggle,
+        edit, or remove them.
+      </p>
+      <LaneList
+        lanes={lanes}
+        updateLane={async (id, patch) => {
+          "use server"
+          return updateLane(id, patch)
+        }}
+        setActive={async (id, isActive) => {
+          "use server"
+          return setLaneActive(id, isActive)
+        }}
+        deleteLane={async (id) => {
+          "use server"
+          return deleteLane(id)
+        }}
+      />
       <div className="border-t pt-6">
         <h2 className="mb-3 text-lg font-semibold">Add a lane</h2>
         <LaneForm
