@@ -42,8 +42,8 @@ export default async function BossBattlesPage() {
               existingCoachNote={existing?.coachNote ?? undefined}
               createBossBattle={async (data) => {
                 "use server"
-                await createBossBattle(data)
-                return {}
+                const r = await createBossBattle(data)
+                return { coachNote: r.ok ? r.coachNote : undefined }
               }}
             />
           </section>

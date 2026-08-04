@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 export async function createReflection(
   input: unknown
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; id: string; coachSummary: string } | { ok: false; error: string }> {
   const parsed = reflectionSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "validation" };
@@ -23,5 +23,5 @@ export async function createReflection(
   });
 
   revalidatePath("/reflection");
-  return { ok: true, id: reflection.id };
+  return { ok: true, id: reflection.id, coachSummary };
 }
