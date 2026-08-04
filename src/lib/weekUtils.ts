@@ -17,6 +17,10 @@ export function getWeekStart(date: Date) {
   return new Date(dayStart - daysSinceMonday * DAY_MS);
 }
 
+export function getLastCompletedWeekStart(date: Date): Date {
+  return new Date(getWeekStart(date).getTime() - 7 * DAY_MS);
+}
+
 export function get2WeekBlockStart(date: Date) {
   const daysSinceEpoch = Math.floor((utcMidnight(date) - EPOCH_START) / DAY_MS);
   const blockIndex = Math.floor(daysSinceEpoch / 14);
