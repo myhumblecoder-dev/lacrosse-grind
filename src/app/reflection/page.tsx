@@ -1,5 +1,6 @@
 import { prisma as db } from "@/lib/db"
 import { getWeekStart, formatWeekLabel } from "@/lib/weekUtils"
+import { getTrainingDay } from "@/lib/trainingDay"
 import { createReflection } from "@/app/actions/createReflection"
 import { editReflection } from "@/app/actions/editReflection"
 import { deleteReflection } from "@/app/actions/deleteReflection"
@@ -8,12 +9,8 @@ import ReflectionList from "@/components/ReflectionList"
 
 export const dynamic = "force-dynamic"
 
-function utcMidnight(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-}
-
 export default async function ReflectionPage() {
-  const weekStart = getWeekStart(utcMidnight(new Date()))
+  const weekStart = getWeekStart(getTrainingDay(new Date()))
 
   const allReflections = await db.weeklyReflection.findMany({
     orderBy: { weekStarting: "desc" },
