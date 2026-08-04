@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { computeStreak } from "@/lib/streak"
 import { getWeekStart } from "@/lib/weekUtils"
+import { getTrainingDay } from "@/lib/trainingDay"
 import { createCheckIn } from "@/app/actions/createCheckIn"
 import { deleteCheckIn } from "@/app/actions/deleteCheckIn"
 import CheckInCard from "@/components/CheckInCard"
@@ -8,12 +9,8 @@ import { WeeklyProgress } from "@/components/WeeklyProgress"
 
 export const dynamic = "force-dynamic"
 
-function utcMidnight(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-}
-
 export default async function DashboardPage() {
-  const today = utcMidnight(new Date())
+  const today = getTrainingDay(new Date())
   const weekStart = getWeekStart(today)
 
   const lanes = await prisma.lane.findMany({
