@@ -19,7 +19,7 @@ export function WeeklyProgress({ hits, target }: WeeklyProgressProps) {
       <div className="flex justify-between text-sm font-medium">
         <span>{hits} / {target} days this week</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-700">
         <div
           data-testid="progress-bar"
           className={`h-full transition-all duration-500 ${barColorClass}`}

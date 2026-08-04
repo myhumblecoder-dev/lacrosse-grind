@@ -50,7 +50,7 @@ export default async function HistoryPage() {
                   ? c.isRest
                     ? "bg-blue-300"
                     : "bg-green-400"
-                  : "bg-zinc-200"
+                  : "bg-zinc-800"
                 return (
                   <div
                     key={d.getTime()}

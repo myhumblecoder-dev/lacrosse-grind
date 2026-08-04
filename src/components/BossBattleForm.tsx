@@ -64,7 +64,7 @@ export default function BossBattleForm({
           data-testid="self-report-input"
           value={selfReport}
           onChange={(e) => setSelfReport(e.target.value)}
-          className="min-h-[150px] p-2 border rounded-md text-black"
+          className="min-h-[150px] p-2 border rounded-md"
           placeholder="How did the battle go?"
         />
       </div>
@@ -78,7 +78,7 @@ export default function BossBattleForm({
       {coachNote && (
         <div
           data-testid="coach-note"
-          className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800"
+          className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md text-blue-200"
         >
           🧠 Coach says: {coachNote}
         </div>
