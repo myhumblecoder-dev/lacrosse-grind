@@ -28,9 +28,6 @@ export default function ReflectionForm({
     setError(null)
 
     if (!note.trim()) {
-      setError("Share something about your eslint")
-      // Note: The AC specifically asked for "Share something about your week"
-      // but I will use the exact string from the AC requirements.
       setError("Share something about your week")
       return
     }
