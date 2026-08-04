@@ -26,16 +26,10 @@ export default function ReflectionList({
   editReflection,
   deleteReflection,
 }: ReflectionListProps) {
-  const [editingId, setEditing0] = useState<string | null>(null)
-  // Note: The previous error showed a collision or typo in the build log.
-  // I will use the standard setter name and ensure it is correctly scoped.
-  const [editingIdState, setEditingIdState] = useState<string | null>(null)
   const [draft, setDraft] = useState("")
   const [summaries, setSummaries] = useState<Record<string, string | null>>({})
   const [confirmItem, setConfirmItem] = useState<Reflection | null>(null)
 
-  // Re-implementing with clean state to avoid the 'setEditingId' not found error
-  // from the previous failed attempt's broken logic.
   const [activeEditingId, setActiveEditingId] = useState<string | null>(null)
 
   function startEdit(r: Reflection) {
