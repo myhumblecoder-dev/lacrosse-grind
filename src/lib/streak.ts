@@ -1,15 +1,14 @@
 import { differenceInCalendarDays } from "date-fns";
 
 export function computeStreak(checkIns: { date: Date; isRest: boolean }[], today: Date) {
-  const todayStart = new Date(today);
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
 
   // Filter for check-ins that are on or before today
-  // and normalize them to start of day for comparison
+  // and normalize them to start of day for comparison without mutating input
   const validCheckIns = checkIns
     .map((ci) => ({
       ...ci,
-      date: new Date(ci.date.setHours(0, 0, 0, 0)),
+      date: new Date(Date.UTC(ci.date.getUTCFullYear(), ci.date.getUTCMonth(), ci.date.getUTCDate())),
     }))
     .filter((ci) => ci.date <= todayStart);
 
@@ -36,7 +35,7 @@ export function computeStreak(checkIns: { date: Date; isRest: boolean }[], today
   for (const dateTimestamp of uniqueDates) {
     if (dateTimestamp === currentDay) {
       streak++;
-      // Move to the previous calendar day
+      // Move to the previous calendar day (86400000 ms = 1 day)
       currentDay -= 86400000;
     } else {
       // Gap found
