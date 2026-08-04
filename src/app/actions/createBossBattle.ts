@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 export async function createBossBattle(
   input: unknown
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; id: string; coachNote: string } | { ok: false; error: string }> {
   const parsed = bossBattleSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "validation" };
@@ -23,5 +23,5 @@ export async function createBossBattle(
   });
 
   revalidatePath("/boss-battles");
-  return { ok: true, id: battle.id };
+  return { ok: true, id: battle.id, coachNote };
 }

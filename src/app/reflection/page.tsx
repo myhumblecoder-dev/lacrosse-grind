@@ -25,8 +25,8 @@ export default async function ReflectionPage() {
         existingCoachSummary={reflection?.coachSummary ?? undefined}
         createReflection={async (data) => {
           "use server"
-          await createReflection(data)
-          return {}
+          const r = await createReflection(data)
+          return { coachSummary: r.ok ? r.coachSummary : undefined }
         }}
       />
     </main>

@@ -22,7 +22,7 @@ describe('createReflection', () => {
       playerNote: 'Trained four days, rested two, felt strong.',
     })
 
-    expect(result).toEqual({ ok: true, id: 'wr-1' })
+    expect(result).toEqual({ ok: true, id: 'wr-1', coachSummary: 'You stayed consistent all week — that is the habit taking hold.' })
     expect(generate).toHaveBeenCalledOnce()
     const arg = vi.mocked(prisma.weeklyReflection.upsert).mock.calls[0][0]
     expect(arg.where).toEqual({ weekStarting })

@@ -23,7 +23,7 @@ describe('createBossBattle', () => {
       selfReport: 'Worked my off-hand cradle for 20 minutes.',
     })
 
-    expect(result).toEqual({ ok: true, id: 'bb-1' })
+    expect(result).toEqual({ ok: true, id: 'bb-1', coachNote: expect.any(String) })
     expect(generate).toHaveBeenCalledOnce()
     const arg = vi.mocked(prisma.bossBattle.upsert).mock.calls[0][0]
     expect(arg.where).toEqual({ laneId_weekStarting: { laneId: 'lane-1', weekStarting } })
