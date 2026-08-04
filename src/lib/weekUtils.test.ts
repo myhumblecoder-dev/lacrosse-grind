@@ -1,7 +1,40 @@
 import { describe, it, expect } from 'vitest'
-import { getWeekStart, get2WeekBlockStart, formatWeekLabel } from './weekUtils'
+import { getWeekStart, getLastCompletedWeekStart, get2WeekBlockStart, formatWeekLabel } from './weekUtils'
 
 describe('weekUtils', () => {
+  it('last completed week from midweek', () => {
+    // Wednesday 2024-01-10
+    // Current week start: Monday 2024-01-08
+    // Last completed week start: Monday 2024-01-01
+    const date = new Date(Date.UTC(2024, 0, 10))
+    const result = getLastCompletedWeekStart(date)
+    expect(result.getUTCFullYear()).toBe(2024)
+    expect(result.getUTCMonth()).toBe(0)
+    expect(result.getUTCDate()).toBe(1)
+  })
+
+  it('last completed week from Monday', () => {
+    // Monday 2024-01-08
+    // Current week start: Monday 2024-01-08
+    // Last completed week start: Monday 2024-01-01
+    const date = new Date(Date.UTC(2024, 0, 8))
+    const result = getLastCompletedWeekStart(date)
+    expect(result.getUTCFullYear()).toBe(2024)
+    expect(result.getUTCMonth()).toBe(0)
+    expect(result.getUTCDate()).toBe(1)
+  })
+
+  it('last completed week from Sunday', () => {
+    // Sunday 2024-01-14
+    // Current week start: Monday 2024-01-08
+    // Last completed week start: Monday 2024-01-01
+    const date = new Date(Date.UTC(2024, 0, 14))
+    const result = getLastCompletedWeekStart(date)
+    expect(result.getUTCFullYear()).toBe(2024)
+    expect(result.getUTCMonth()).toBe(0)
+    expect(result.getUTCDate()).toBe(1)
+  })
+
   it('getWeekStart Monday input', () => {
     // Monday 2024-01-08
     const date = new Date(Date.UTC(2024, 0, 8))
