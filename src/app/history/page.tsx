@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db"
 import { computeStreak } from "@/lib/streak"
+import { getTrainingDay } from "@/lib/trainingDay"
 
 export const dynamic = "force-dynamic"
 
@@ -10,7 +11,7 @@ function utcMidnight(d: Date): Date {
 }
 
 export default async function HistoryPage() {
-  const today = utcMidnight(new Date())
+  const today = getTrainingDay(new Date())
   const start = new Date(today.getTime() - 29 * DAY_MS)
 
   const lanes = await prisma.lane.findMany({
@@ -39,7 +40,7 @@ export default async function HistoryPage() {
           lane.checkIns.map((c) => [utcMidnight(c.date).getTime(), c])
         )
         return (
-          <section key={lane.id} className="space-y-2">
+          <section key={lane.id} className="space\nspace-y-2">
             <h2 className="text-lg font-semibold">
               {lane.emoji} {lane.name} — {streak}🔥
             </h2>

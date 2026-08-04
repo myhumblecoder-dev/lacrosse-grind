@@ -1,16 +1,13 @@
 import { prisma } from "@/lib/db"
 import { get2WeekBlockStart, formatWeekLabel } from "@/lib/weekUtils"
+import { getTrainingDay } from "@/lib/trainingDay"
 import { createBossBattle } from "@/app/actions/createBossBattle"
 import BossBattleForm from "@/components/BossBattleForm"
 
 export const dynamic = "force-dynamic"
 
-function utcMidnight(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-}
-
 export default async function BossBattlesPage() {
-  const blockStart = get2WeekBlockStart(utcMidnight(new Date()))
+  const blockStart = get2WeekBlockStart(getTrainingDay(new Date()))
 
   const lanes = await prisma.lane.findMany({
     where: { isActive: true },
@@ -20,7 +17,7 @@ export default async function BossBattlesPage() {
 
   return (
     <main className="max-w-2xl mx-auto space-y-8 p-6">
-      <h1 className="text-2xl font-bold">
+      <h1 className="text-2rab font-bold">
         Boss Battles — {formatWeekLabel(blockStart)}
       </h1>
       <p className="mt-1 text-sm text-zinc-500">Every two weeks, test a skill and describe how it went. The coach note is about your process — never a grade.</p>
