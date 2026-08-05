@@ -73,3 +73,15 @@ model StreakFreeze {
 
   @@index([laneId])
 }
+
+// Prize — the single thing the player is training for.
+// id is a fixed singleton value and reasons is an ordered scalar list.
+model Prize {
+  id          String   @id @default("prize")
+  title       String
+  description String?
+  reasons     String[]
+  photoUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
