@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { laneSchema, checkInSchema, bossBattleSchema, reflectionSchema } from './validation'
+import { laneSchema, checkInSchema, bossBattleSchema, reflectionSchema, prizeSchema } from './validation'
 
 describe('validation', () => {
   it('laneSchema valid input passes', () => {
@@ -55,7 +55,7 @@ describe('validation', () => {
     const invalidData = {
       date: new Date(Date.UTC(2023, 10, 1)),
       isRest: false
-    }
+    } as any
     const result = checkInSchema.safeParse(invalidData)
     expect(result.success).toBe(false)
   })
@@ -78,4 +78,49 @@ describe('validation', () => {
     const result = reflectionSchema.safeParse(invalidData)
     expect(result.success).toBe(false)
   })
-})
+
+  it('prize accepts a full valid record', () => {
+    const validData = {
+      title: 'MVP Award',
+      description: 'For the best player of the season.',
+      reasons: ['Great teamwork', 'High scoring'],
+      photoUrl: 'https://example.com/photo.jpg'
+    }
+    const result = prizeSchema.safeParse(validData)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.title).toBe('MVP Award')
+      expect(result.data.reasons).toHaveLength(2)
+    }
+  })
+
+  it('prize rejects an empty title', () => {
+    const invalidData = {
+      title: '   ',
+      description: 'Valid description'
+    }
+    const result = prizeSchema.safeParse(invalidData)
+    expect(result.success).toBe(false)
+  })
+
+  it('prize rejects more than ten reasons', () => {
+    const invalidData = {
+      title: 'Too many reasons',
+      reasons: Array(11).fill('Reason')
+    }
+    const result = prizeSchema.safeParse(invalidData)
+    expect(result.success).toBe(false)
+  })
+
+  it('prize accepts an empty reasons array', () => {
+    const validData = {
+      title: 'New Prize',
+      reasons: []
+    }
+    const result = prizeSchema.safeParse(validData)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.reasons).toEqual([])
+    }
+  })
+}) 
