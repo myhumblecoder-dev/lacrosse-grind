@@ -78,18 +78,14 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
-// Mocking the validation schema to prevent global state leakage from the real schema
-// which might contain default values that interfere with the 'empty object' test.
 vi.mock('@/lib/validation', () => ({
   laneSchema: {
     partial: () => ({
-      safeParse: (data: any) => {
-        // Simulate Zod behavior: if name is a number, it's a failure
-        if (typeof data?.name === 'number') {
+      safeParse: (data: unknown) => {
+        const d = data as Record<string, unknown>;
+        if (d && typeof d.name === 'number') {
           return { success: false };
         }
-        // If data is an empty object, return success with empty data
-        // If data has fields, return success with those fields
         return { success: true, data: data };
       }
     })
@@ -159,4 +155,4 @@ describe('updateLane', () => {
 
     await expect(updateLane(id, patch)).rejects.toThrow('Database connection failed')
   })
-})
+}) 
