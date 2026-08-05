@@ -83,9 +83,10 @@ vi.mock('next/cache', () => ({
 vi.mock('@/lib/validation', () => ({
   laneSchema: {
     partial: () => ({
-      safeParse: (data: any) => {
+      safeParse: (data: unknown) => {
+        const d = data as Record<string, unknown>;
         // Simulate Zod behavior: if name is a number, it's a failure
-        if (typeof data?.name === 'number') {
+        if (d && typeof d.name === 'number') {
           return { success: false };
         }
         // If data is an empty object, return success with empty data
