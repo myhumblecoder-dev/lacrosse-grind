@@ -24,7 +24,15 @@ export const reflectionSchema = z.object({
   playerNote: z.string().trim().min(1).max(500),
 })
 
+export const prizeSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  description: z.string().trim().max(500).optional().nullable().transform((val) => (val === "" ? undefined : val)),
+  reasons: z.array(z.string().trim().min(1).max(200)).max(10).default([]),
+  photoUrl: z.string().url().optional().nullable(),
+})
+
 export type LaneInput = z.infer<typeof laneSchema>
 export type CheckInInput = z.infer<typeof checkInSchema>
 export type BossBattleInput = z.infer<typeof bossBattleSchema>
 export type ReflectionInput = z.infer<typeof reflectionSchema>
+export type PrizeInput = z.infer<typeof prizeSchema>
