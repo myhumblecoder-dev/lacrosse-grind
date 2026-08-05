@@ -13,11 +13,12 @@ describe('SidebarNav', () => {
     vi.mocked(usePathname).mockReturnValue('/')
   })
 
-  it('renders five nav links', async () => {
+  it('renders six nav links', async () => {
     render(<SidebarNav />)
     expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Lanes' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Battles' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Prize' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Reflect' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'History' })).toBeInTheDocument()
   })
@@ -56,5 +57,12 @@ describe('SidebarNav', () => {
     
     expect(inactiveLink).not.toHaveAttribute('aria-current')
     expect(inactiveLink).toHaveClass('text-zinc-400')
+  })
+
+  it('renders the prize nav link', async () => {
+    render(<SidebarNav />)
+    const prizeLink = screen.getByRole('link', { name: 'Prize' })
+    expect(prizeLink).toBeInTheDocument()
+    expect(prizeLink).toHaveAttribute('href', '/prize')
   })
 }) 
