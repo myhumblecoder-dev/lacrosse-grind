@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  TodayIcon, 
-  LanesIcon, 
-  BattlesIcon, 
-  ReflectIcon, 
-  HistoryIcon, 
-  MenuIcon 
+import {
+  TodayIcon,
+  LanesIcon,
+  BattlesIcon,
+  PrizeIcon,
+  ReflectIcon,
+  HistoryIcon,
+  MenuIcon
 } from '@/components/icons'
 
 interface NavItem {
@@ -22,6 +23,7 @@ const NAV: NavItem[] = [
   { href: '/', label: 'Today', icon: TodayIcon },
   { href: '/lanes', label: 'Lanes', icon: LanesIcon },
   { href: '/boss-battles', label: 'Battles', icon: BattlesIcon },
+  { href: '/prize', label: 'Prize', icon: PrizeIcon },
   { href: '/reflection', label: 'Reflect', icon: ReflectIcon },
   { href: '/history', label: 'History', icon: HistoryIcon },
 ]
