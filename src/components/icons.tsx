@@ -65,10 +65,21 @@ export function HistoryIcon() {
 
 export function MenuIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5">
+    <svg viewBox="0 0 24 24" fill="none" stroke="\currentColor" strokeWidth={1.5} className="h-5 w-5">
       <line x1="3" y1="12" x2="21" y2="12" />
       <line x1="3" y1="6" x2="21" y2="6" />
       <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  )
+}
+
+export function PrizeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5">
+      <path d="M6 9l6-3 6 3v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9z" />
+      <path d="M12 3v3" />
+      <path d="M12 12h.01" />
+      <path d="M9 15h6" />
     </svg>
   )
 }
