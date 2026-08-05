@@ -22,6 +22,14 @@ const assertIsUtcMidnightOf = (date: Date, year: number, month: number, day: num
 }
 
 describe('trainingDay', () => {
+  it('training timezone is New York', () => {
+    expect(TRAINING_TZ).toBe('America/New_York')
+  })
+
+  it('rollover hour is 3am', () => {
+    expect(DAY_ROLLOVER_HOUR).toBe(3)
+  })
+
   it('noon local maps to that day', () => {
     // 2026-08-05 12:00:00 EDT (UTC-4)
     // 12:00 EDT is 16:00 UTC
