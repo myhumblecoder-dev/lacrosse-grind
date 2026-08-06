@@ -35,34 +35,12 @@ export default async function PrizePage() {
           "use server"
           return deletePrize()
         }}
+        uploadPhoto={async (formData: FormData) => {
+          "use server"
+          return uploadPrizePhoto(formData)
+        }}
       />
 
-      {prize && (
-        <form
-          action={async (formData: FormData) => {
-            "use server"
-            await uploadPrizePhoto(formData)
-          }}
-          className="flex flex-col gap-2 border-t border-zinc-800 pt-6"
-        >
-          <label htmlFor="prize-photo" className="text-sm font-medium">
-            {prize.photoUrl ? "Replace photo" : "Upload photo"}
-          </label>
-          <input
-            id="prize-photo"
-            type="file"
-            name="photo"
-            accept="image/*"
-            className="text-sm text-zinc-400"
-          />
-          <button
-            type="submit"
-            className="self-start rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-          >
-            {prize.photoUrl ? "Replace photo" : "Upload photo"}
-          </button>
-        </form>
-      )}
     </main>
   )
 }

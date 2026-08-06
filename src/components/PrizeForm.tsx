@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import PrizePhotoInput, { type PrizePhotoSelection } from "@/components/PrizePhotoInput"
 
 const MAX_REASONS = 10
 
@@ -8,11 +9,18 @@ interface PrizeFormProps {
   existingTitle?: string
   existingDescription?: string
   existingReasons?: string[]
+  existingPhotoUrl?: string | null
   savePrize: (data: {
     title: string
     description: string
     reasons: string[]
   }) => Promise<unknown>
+  /**
+   * Uploads the chosen photo. Called AFTER savePrize resolves, because the
+   * upload writes onto the Prize row — the row has to exist first. Optional so
+   * the form still works without a photo path wired up.
+   */
+  uploadPhoto?: (formData: FormData) => Promise<unknown>
   onCancel?: () => void
 }
 
@@ -20,7 +28,9 @@ export default function PrizeForm({
   existingTitle,
   existingDescription,
   existingReasons,
+  existingPhotoUrl,
   savePrize,
+  uploadPhoto,
   onCancel,
 }: PrizeFormProps) {
   const [title, setTitle] = useState(existingTitle ?? "")
@@ -28,6 +38,7 @@ export default function PrizeForm({
   // One input per reason, keyed by position. Removing a row shifts the rest up,
   // so a test must assert on the remaining VALUES, never on a fixed testid.
   const [reasons, setReasons] = useState<string[]>(existingReasons ?? [])
+  const [photo, setPhoto] = useState<PrizePhotoSelection | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -55,6 +66,16 @@ export default function PrizeForm({
         // Blank rows are scaffolding for typing, not content.
         reasons: reasons.map((r) => r.trim()).filter((r) => r.length > 0),
       })
+
+      // Photo second, and only if one was chosen: uploadPrizePhoto updates the
+      // Prize row, so it needs the row savePrize just created. One Save from
+      // Eddie's side; two calls underneath.
+      if (photo && uploadPhoto) {
+        const formData = new FormData()
+        if (photo.file) formData.set("photo", photo.file)
+        if (photo.url) formData.set("photoUrl", photo.url)
+        await uploadPhoto(formData)
+      }
     })
   }
 
@@ -122,6 +143,10 @@ export default function PrizeForm({
           </button>
         )}
       </div>
+
+      {uploadPhoto && (
+        <PrizePhotoInput existingPhotoUrl={existingPhotoUrl} onChange={setPhoto} />
+      )}
 
       {error && (
         <p className="text-sm text-red-500" role="alert">

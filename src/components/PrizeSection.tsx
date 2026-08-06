@@ -17,6 +17,7 @@ interface PrizeSectionProps {
     reasons: string[]
   }) => Promise<unknown>
   deletePrize: () => Promise<unknown>
+  uploadPhoto: (formData: FormData) => Promise<unknown>
 }
 
 /**
@@ -31,13 +32,14 @@ export default function PrizeSection({
   prize,
   savePrize,
   deletePrize,
+  uploadPhoto,
 }: PrizeSectionProps) {
   const [isEditing, setIsEditing] = useState(false)
 
   // No prize yet: the form IS the empty state, so a first visit lands straight
   // on "What are you playing for?" rather than a dead end.
   if (!prize) {
-    return <PrizeForm savePrize={savePrize} />
+    return <PrizeForm savePrize={savePrize} uploadPhoto={uploadPhoto} />
   }
 
   if (isEditing) {
@@ -46,6 +48,8 @@ export default function PrizeSection({
         existingTitle={prize.title}
         existingDescription={prize.description ?? undefined}
         existingReasons={prize.reasons}
+        existingPhotoUrl={prize.photoUrl}
+        uploadPhoto={uploadPhoto}
         savePrize={async (data) => {
           const result = await savePrize(data)
           setIsEditing(false)
