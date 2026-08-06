@@ -100,4 +100,79 @@ describe('uploadPrizePhoto', () => {
     expect(result).toEqual({ ok: false, error: 'too-large' })
     expect(put).not.toHaveBeenCalled()
   })
+
+  describe('remote url', () => {
+    const remoteUrl = 'https://images.test/photos/ps5.png'
+
+    const okResponse = (type = 'image/png', size = 1024) =>
+      ({
+        ok: true,
+        headers: { get: (h: string) => (h === 'content-type' ? type : null) },
+        blob: async () => ({ size }) as Blob,
+      }) as unknown as Response
+
+    it('remote url uploads and stores', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse()))
+      vi.mocked(put).mockResolvedValue({ url: 'https://blob.test/prize/ps5.png' } as never)
+      vi.mocked(db.prize.findUnique).mockResolvedValue(null)
+
+      const fd = new FormData()
+      fd.append('photoUrl', remoteUrl)
+      const result = await uploadPrizePhoto(fd)
+
+      expect(result).toEqual({ ok: true, url: 'https://blob.test/prize/ps5.png' })
+      // the blob pathname keeps the final segment of the remote path
+      expect(vi.mocked(put).mock.calls[0][0]).toContain('ps5.png')
+      expect(db.prize.update).toHaveBeenCalledWith({
+        where: { id: 'prize' },
+        data: { photoUrl: 'https://blob.test/prize/ps5.png' },
+      })
+      expect(revalidatePath).toHaveBeenCalledWith('/prize')
+    })
+
+    it('non-image url returns not-an-image', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('text/html')))
+
+      const fd = new FormData()
+      fd.append('photoUrl', remoteUrl)
+
+      expect(await uploadPrizePhoto(fd)).toEqual({ ok: false, error: 'not-an-image' })
+      expect(put).not.toHaveBeenCalled()
+    })
+
+    it('oversized url returns too-large', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('image/png', 6 * 1024 * 1024)))
+
+      const fd = new FormData()
+      fd.append('photoUrl', remoteUrl)
+
+      expect(await uploadPrizePhoto(fd)).toEqual({ ok: false, error: 'too-large' })
+      expect(put).not.toHaveBeenCalled()
+    })
+
+    it('failed fetch returns fetch-failed', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false } as Response))
+
+      const fd = new FormData()
+      fd.append('photoUrl', remoteUrl)
+
+      expect(await uploadPrizePhoto(fd)).toEqual({ ok: false, error: 'fetch-failed' })
+      expect(put).not.toHaveBeenCalled()
+    })
+
+    it('file wins when both are present', async () => {
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+      vi.mocked(put).mockResolvedValue({ url: 'https://blob.test/prize/from-file.png' } as never)
+      vi.mocked(db.prize.findUnique).mockResolvedValue(null)
+
+      const fd = new FormData()
+      fd.append('photo', new File(['bytes'], 'from-file.png', { type: 'image/png' }))
+      fd.append('photoUrl', remoteUrl)
+      const result = await uploadPrizePhoto(fd)
+
+      expect(result).toEqual({ ok: true, url: 'https://blob.test/prize/from-file.png' })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+  })
 })
