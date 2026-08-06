@@ -1,5 +1,12 @@
 import { differenceInCalendarDays } from "date-fns";
 
+/**
+ * Returns the number of consecutive days up to and including `today` that have a check-in.
+ * Returns `0` when there is no check-in for `today` at all.
+ * Rest-day entries count as hits, matching the dashboard's weekly counter.
+ * Multiple check-ins on the same day count once.
+ * `today` and every check-in date are compared at UTC midnight, so callers should pass the value from `getTrainingDay`.
+ */
 export function computeStreak(checkIns: { date: Date; isRest: boolean }[], today: Date) {
   const todayStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
 

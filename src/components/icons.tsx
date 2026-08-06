@@ -72,3 +72,16 @@ export function MenuIcon() {
     </svg>
   )
 }
+
+export function PrizeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5">
+      <path d="M8 4h8v6a4 4 0 0 1-8 0V4z" />
+      <path d="M8 6H5v2a3 3 0 0 0 3 3" />
+      <path d="M16 6h3v2a3 3 0 0 1-3 3" />
+      <line x1="12" y1="14" x2="12" y2="17" />
+      <path d="M9 20h6" />
+      <path d="M10 17h4l1 3H9l1-3z" />
+    </svg>
+  )
+}
