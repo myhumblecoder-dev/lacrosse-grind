@@ -25,6 +25,27 @@
 
 Source of truth for all persistence.
 
+**Schema changes reach production via the build, not by hand.** This repo is
+schema-first — there is no `prisma/migrations/`, so the schema file *is* the
+migration. `package.json` therefore defines a `vercel-build` script that runs
+`prisma db push` before `next build`; Vercel prefers `vercel-build` over
+`build` when present, so every production deploy syncs the database to the
+schema using the `DATABASE_URL` Vercel injects. Two consequences worth knowing:
+
+- **CI still runs plain `build`**, which has no `db push`. That is deliberate:
+  CI sets a placeholder `DATABASE_URL` pointing at a database that does not
+  exist, and a push there would fail every PR.
+- **`db push` refuses any change that would lose data.** Additive changes (a
+  new model, a new nullable column) apply silently; a rename or a dropped
+  column fails the build instead of destroying rows. Never add
+  `--accept-data-loss` to that script — it converts a blocked deploy into
+  silent data loss.
+
+Nobody needs the production connection string to ship a schema change. Vercel
+marks every Postgres variable *sensitive*, so `vercel env pull` returns
+`[SENSITIVE]` rather than the value and a local `prisma db push` against prod
+is not possible without fetching the string out of the Neon console by hand.
+
 ```prisma
 // Lane — a skill domain Eddie trains (e.g. "Stick Skills", "Shooting", "Conditioning")
 model Lane {
