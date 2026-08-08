@@ -3,11 +3,36 @@ import { upsertPrize } from "@/app/actions/upsertPrize"
 import { deletePrize } from "@/app/actions/deletePrize"
 import { uploadPrizePhoto } from "@/app/actions/uploadPrizePhoto"
 import PrizeSection from "@/components/PrizeSection"
+import SeasonProgress from "@/components/SeasonProgress"
+import { SEASON_START, getSeasonEnd } from "@/lib/season"
+import { getSeasonProgress } from "@/lib/seasonProgress"
+import { getTrainingDay } from "@/lib/trainingDay"
 
 export const dynamic = "force-dynamic"
 
 export default async function PrizePage() {
   const prize = await prisma.prize.findUnique({ where: { id: "prize" } })
+
+  const lanes = await prisma.lane.findMany({
+    where: { isActive: true },
+    select: {
+      targetPerWeek: true,
+      checkIns: {
+        where: {
+          date: {
+            gte: SEASON_START,
+            lt: getSeasonEnd(),
+          },
+        },
+        select: {
+          date: true,
+          isRest: true,
+        },
+      },
+    },
+  })
+
+  const progress = getSeasonProgress(lanes, getTrainingDay(new Date()))
 
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
@@ -41,6 +66,7 @@ export default async function PrizePage() {
         }}
       />
 
+      <SeasonProgress progress={progress} />
     </main>
   )
 }
