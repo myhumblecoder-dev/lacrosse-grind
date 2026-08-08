@@ -67,4 +67,19 @@ describe('AppShell', () => {
     // Verify drawer is closed
     expect(screen.getByTestId('nav-drawer')).toHaveClass('-translate-x-full')
   })
+  // Regression guard. The first landed version wrapped everything in a plain
+  // `flex-col`, so at `md` the drawer went `md:static` and rejoined the flow as
+  // a COLUMN item — stacking the nav above the content as a full-width band
+  // instead of beside it. Every unit test still passed, because jsdom applies
+  // no CSS. Assert the row explicitly.
+  it('lays out as a row from md up so the desktop rail sits beside the content', async () => {
+    const { container } = render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>
+    )
+    const wrapper = container.firstElementChild as HTMLElement
+    expect(wrapper.className).toContain('flex-col')
+    expect(wrapper.className).toContain('md:flex-row')
+  })
 })
