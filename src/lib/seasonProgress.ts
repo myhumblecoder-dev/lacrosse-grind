@@ -1,5 +1,5 @@
 import { getWeekStatuses, type WeekStatus } from "@/lib/weekStatuses";
-import { SEASON_START, SEASON_WEEKS, WEEKS_REQUIRED } from "@/lib/season";
+import { SEASON_WEEKS, WEEKS_REQUIRED } from "@/lib/season";
 
 export interface SeasonProgress {
   weeks: Array<{
@@ -22,7 +22,7 @@ export function getSeasonProgress(
     }>;
   }>,
   today: Date,
-  seasonStart: Date | null = SEASON_START
+  seasonStart: Date | null
 ): SeasonProgress {
   const weeks = getWeekStatuses(lanes, today, seasonStart);
 
