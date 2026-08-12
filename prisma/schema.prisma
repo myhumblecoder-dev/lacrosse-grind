@@ -82,6 +82,7 @@ model Prize {
   description String?
   reasons     String[]
   photoUrl    String?
+  seasonStart DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
