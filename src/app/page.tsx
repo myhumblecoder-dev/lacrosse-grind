@@ -6,12 +6,23 @@ import { createCheckIn } from "@/app/actions/createCheckIn"
 import { deleteCheckIn } from "@/app/actions/deleteCheckIn"
 import CheckInCard from "@/components/CheckInCard"
 import { WeeklyProgress } from "@/components/WeeklyProgress"
+import SeasonStartButton from "@/components/SeasonStartButton"
+import SeasonSetupPanel from "@/components/SeasonSetupPanel"
+import { getSeasonReadiness } from "@/lib/seasonReadiness"
 
 export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
   const today = getTrainingDay(new Date())
   const weekStart = getWeekStart(today)
+
+  const [prize, activeLaneCount] = await Promise.all([
+    prisma.prize.findUnique({ where: { id: 'prize' } }),
+    prisma.lane.count({ where: { isActive: true } })
+  ])
+
+  const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize))
+  const hasStarted = Boolean(prize?.seasonStart)
 
   const lanes = await prisma.lane.findMany({
     where: { isActive: true },
@@ -23,6 +34,17 @@ export default async function DashboardPage() {
 
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
+      <div className="space-y-4">
+        <SeasonStartButton hasStarted={hasStarted} isReady={readiness.isReady} />
+        {!hasStarted && !readiness.isReady && (
+          <SeasonSetupPanel 
+            laneCount={activeLaneCount} 
+            lanesNeeded={0} 
+            hasPrize={Boolean(prize)} 
+          />
+        )}
+      </div>
+
       <h1 className="text-2xl font-bold">Today</h1>
       <p className="mt-1 text-sm text-zinc-500">Your daily check-in. Show up for each lane — effort and consistency are the only score, and rest days count too.</p>
       {lanes.length === 0 && (
@@ -37,6 +59,7 @@ export default async function DashboardPage() {
           lane.checkIns.map((c) => ({ date: c.date, isRest: c.isRest })),
           today
         )
+
         return (
           <div key={lane.id} className="space-y-2 rounded-lg border p-4">
             <CheckInCard
