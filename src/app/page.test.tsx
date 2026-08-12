@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
+import { LANES_REQUIRED } from '@/lib/season'
 import { prisma } from '@/lib/db'
 
 // Mocking the components as requested by the AC
@@ -83,5 +84,24 @@ describe('Page', () => {
 
     expect(screen.queryByTestId('season-setup-panel')).not.toBeInTheDocument()
     expect(screen.getByTestId('season-start-button')).toBeInTheDocument()
+  })
+
+  it('tells the setup panel how many lanes the season actually requires', async () => {
+    // The panel computes `laneCount >= lanesNeeded` to tick its step off. When
+    // the page hands it 0, that comparison is always true, so Eddie is told
+    // his setup is complete while the START button stays disabled.
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({
+      id: 'prize',
+      title: 'PS5',
+      seasonStart: null,
+      reasons: [],
+    } as any)
+    vi.mocked(prisma.lane.count).mockResolvedValue(1)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    render(await Page())
+
+    const panel = screen.getByTestId('season-setup-panel')
+    expect(panel.getAttribute('data-lanes-needed')).toBe(String(LANES_REQUIRED))
   })
 })
