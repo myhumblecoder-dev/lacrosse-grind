@@ -1,5 +1,6 @@
-import { getSeasonWeeks } from "@/lib/season";
-import { isQualifyingWeek } from "@/lib/isQualifyingWeek";
+import { getSeasonWeeksFrom } from '@/lib/seasonWindow';
+import { isQualifyingWeek } from '@/lib/isQualifyingWeek';
+import { SEASON_START, SEASON_WEEKS } from '@/lib/season';
 
 export type WeekStatus = "qualified" | "missed" | "current" | "upcoming";
 
@@ -10,9 +11,18 @@ interface LaneData {
 
 export function getWeekStatuses(
   lanes: LaneData[],
-  today: Date
+  today: Date,
+  seasonStart: Date | null = SEASON_START
 ): { weekStart: Date; status: WeekStatus }[] {
-  const seasonWeeks = getSeasonWeeks();
+  if (seasonStart === null) {
+    const weeks = getSeasonWeeksFrom(today);
+    return weeks.map((weekStart) => ({
+      weekStart,
+      status: "upcoming" as const,
+    }));
+  }
+
+  const seasonWeeks = getSeasonWeeksFrom(seasonStart);
 
   return seasonWeeks.map((weekStart) => {
     const weekEnd = new Date(weekStart);
@@ -20,17 +30,17 @@ export function getWeekStatuses(
 
     // A week whose window contains today gets status "current"
     if (weekStart <= today && today < weekEnd) {
-      return { weekStart, status: "current" };
+      return { weekStart, status: "current" as const };
     }
 
     // A week whose weekStart is strictly after today gets status "upcoming"
     if (weekStart > today) {
-      return { weekStart, status: "upcoming" };
+      return { weekStart, status: "upcoming" as const };
     }
 
     // A week whose window has fully elapsed (weekEnd <= today)
     // gets "qualified" if isQualifyingWeek returns true, and "missed" otherwise.
     const qualifies = isQualifyingWeek(lanes, weekStart);
-    return { weekStart, status: qualifies ? "qualified" : "missed" };
+    return { weekStart, status: qualifies ? "qualified" as const : "missed" as const };
   });
 }
