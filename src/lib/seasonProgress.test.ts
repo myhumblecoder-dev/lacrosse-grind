@@ -1,30 +1,33 @@
 import { describe, it, expect } from 'vitest'
 import { getSeasonProgress } from './seasonProgress'
-import { SEASON_WEEKS, WEEKS_REQUIRED } from '@/lib/season'
+import {SEASON_WEEKS, WEEKS_REQUIRED } from '@/lib/season'
 
 describe('seasonProgress', () => {
-  it('missesAllowed is the difference between SEASON_WEEKS and WEEKS_REQUIRED', () => {
-    const lanes: Array<any> = []
-    const today = new Date('2026-11-30T00:00:00.000Z')
-    const progress = getSeasonProgress(lanes, today)
-    
-    expect(progress.missedAllowed).toBe(SEASON_WEEKS - WEEKS_REQUIRED)
-  })
+  it('a null seasonStart reports zero qualified and earned false', () => {
+    const lanes: Array<any> = [
+      {
+        targetPerWeek: 1,
+        checkIns: []
+      }
+    ]
+    const today = new Date(Date.UTC(2099, 0, 1))
+    const progress = getSeasonProgress(lanes, today, null as any)
 
-  it('an empty lanes array with a today after the season end leaves qualified at 0 and earned false', () => {
-    const lanes: Array<any> = []
-    const today = new Date('2026-11-30T00:00:00.000Z')
-    const progress = getSeasonProgress(lanes, today)
-    
     expect(progress.qualified).toBe(0)
     expect(progress.earned).toBe(false)
   })
 
-  it('an empty lanes array with a today after the season end floors missesRemaining at 0', () => {
-    const lanes: Array<any> = []
-    const today = new Date('2026-11-30T00:00:00.000Z')
-    const progress = getSeasonProgress(lanes, today)
+  it('a null seasonStart leaves every allowed miss remaining', () => {
+    const lanes: Array<any> = [
+      {
+        targetPerWeek: 1,
+        checkIns: []
+      }
+    ]
+    const today = new Date(Date.UTC(2099, 0, 1))
+    const progress = getSeasonProgress(lanes, today, null as any)
     
-    expect(progress.missesRemaining).toBe(0)
+    const missedAllowed = SEASON_WEEKS - WEEKS_REQUIRED
+    expect(progress.missesRemaining).toBe(missedAllowed)
   })
 })

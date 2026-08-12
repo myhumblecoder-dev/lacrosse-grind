@@ -21,9 +21,10 @@ export function getSeasonProgress(
       isRest: boolean;
     }>;
   }>,
-  today: Date
+  today: Date,
+  seasonStart: Date | null
 ): SeasonProgress {
-  const weeks = getWeekStatuses(lanes, today);
+  const weeks = getWeekStatuses(lanes, today, seasonStart);
 
   const qualified = weeks.filter((w) => w.status === "qualified").length;
   const missed = weeks.filter((w) => w.status === "missed").length;
