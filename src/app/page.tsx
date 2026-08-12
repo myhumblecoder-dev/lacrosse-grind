@@ -39,7 +39,7 @@ export default async function DashboardPage() {
         {!hasStarted && !readiness.isReady && (
           <SeasonSetupPanel 
             laneCount={activeLaneCount} 
-            lanesNeeded={0} 
+            lanesNeeded={readiness.lanesNeeded}
             hasPrize={Boolean(prize)} 
           />
         )}
