@@ -1,6 +1,5 @@
 import { getSeasonWeeksFrom } from '@/lib/seasonWindow';
 import { isQualifyingWeek } from '@/lib/isQualifyingWeek';
-import { SEASON_START, SEASON_WEEKS } from '@/lib/season';
 
 export type WeekStatus = "qualified" | "missed" | "current" | "upcoming";
 
@@ -12,7 +11,7 @@ interface LaneData {
 export function getWeekStatuses(
   lanes: LaneData[],
   today: Date,
-  seasonStart: Date | null = SEASON_START
+  seasonStart: Date | null
 ): { weekStart: Date; status: WeekStatus }[] {
   if (seasonStart === null) {
     const weeks = getSeasonWeeksFrom(today);

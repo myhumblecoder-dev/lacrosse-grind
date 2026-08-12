@@ -31,8 +31,8 @@ describe('PrizePage', () => {
   })
 
   it('titles the first week cell from the stored season start', async () => {
-    // Deliberately NOT the SEASON_START constant: if the page still reads the
-    // constant, the label is 2026-08-10 and this fails.
+    // An arbitrary Monday: the grid must follow the stored date, which is
+    // now the only source of truth for when the season began.
     const started = new Date('2026-09-07T00:00:00.000Z')
     vi.mocked(prisma.prize.findUnique).mockResolvedValue({
       ...PRIZE,

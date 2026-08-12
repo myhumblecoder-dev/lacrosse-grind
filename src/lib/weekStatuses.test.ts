@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { getWeekStatuses } from './weekStatuses'
 import { getSeasonWeeksFrom } from '@/lib/seasonWindow'
 import { isQualifyingWeek } from '@/lib/isQualifyingWeek'
-import { SEASON_START, SEASON_WEEKS } from '@/lib/season'
+import {SEASON_WEEKS } from '@/lib/season'
 
 describe('weekStatuses', () => {
   it('the week windows follow an explicit seasonStart date', () => {
@@ -35,16 +35,5 @@ describe('weekStatuses', () => {
 
     // The first week should start at the 'today' date (as per AC: getSeasonWeeksFrom(today))
     expect(results[0].weekStart.getTime()).toBe(today.getTime())
-  })
-
-  it('omitting the third argument still uses the season constant', () => {
-    const today = new Date(Date.UTC(2025, 5, 10))
-    const lanes: any[] = []
-
-    // This calls getWeekStatuses(lanes, today) which should use SEASON_START
-    const results = getWeekStatuses(lanes, today)
-
-    // The first week should match the real SEASON_START
-    expect(results[0].weekStart.getTime()).toBe(SEASON_START.getTime())
   })
 })
