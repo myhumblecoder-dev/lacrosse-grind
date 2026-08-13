@@ -31,8 +31,14 @@ export const prizeSchema = z.object({
   photoUrl: z.string().url().optional().nullable(),
 })
 
+export const swapSchema = z.object({
+  outLaneId: z.string().min(1),
+  inLaneId: z.string().min(1).optional(),
+})
+
 export type LaneInput = z.infer<typeof laneSchema>
 export type CheckInInput = z.infer<typeof checkInSchema>
 export type BossBattleInput = z.infer<typeof bossBattleSchema>
 export type ReflectionInput = z.infer<typeof reflectionSchema>
 export type PrizeInput = z.infer<typeof prizeSchema>
+export type SwapInput = z.infer<typeof swapSchema>
