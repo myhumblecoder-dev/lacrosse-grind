@@ -60,4 +60,23 @@ describe('PrizePage', () => {
       Array(SEASON_WEEKS).fill('upcoming')
     )
   })
+
+  it('does not exclude retired lanes from the season grid', async () => {
+    // The grid answers "what happened this season". A lane Eddie retired
+    // still earned its check-ins, so filtering the query by isActive would
+    // erase them from weeks he already qualified.
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({
+      ...PRIZE,
+      seasonStart: new Date('2026-09-07T00:00:00.000Z'),
+    } as never)
+
+    render(await PrizePage())
+
+    // `where` may be absent entirely once the filter is gone — both that
+    // and a where-clause without isActive are correct.
+    const where = vi.mocked(prisma.lane.findMany).mock.calls[0][0]?.where as
+      | { isActive?: boolean }
+      | undefined
+    expect(where?.isActive).toBeUndefined()
+  })
 })
