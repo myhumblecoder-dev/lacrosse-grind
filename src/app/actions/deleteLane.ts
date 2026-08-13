@@ -7,6 +7,16 @@ export async function deleteLane(
   if (!id) return { ok: false, error: "missing-id" }
 
   try {
+    // Check if a season is currently running.
+    // If the 'prize' row has a non-null seasonStart, the season is active.
+    const prize = await prisma.prize.findUnique({
+      where: { id: 'prize' },
+    })
+
+    if (prize?.seasonStart) {
+      return { ok: false, error: 'season-running' }
+    }
+
     // Cascade the lane's dependent rows in a single transaction (the schema has
     // no ON DELETE CASCADE, so the FK'd check-ins/battles must go first).
     await prisma.$transaction([
@@ -15,7 +25,7 @@ export async function deleteLane(
       prisma.streakFreeze.deleteMany({ where: { laneId: id } }),
       prisma.lane.delete({ where: { id } }),
     ])
-  } catch {
+  } catch (err) {
     return { ok: false, error: "not-found" }
   }
 
