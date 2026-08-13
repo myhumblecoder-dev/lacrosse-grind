@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useTransition } from 'react'
 
 interface LaneInfo {
   id: string
@@ -27,16 +27,25 @@ export default function LaneSwapModal({
   onSwap,
   onCancel,
 }: LaneSwapModalProps) {
-  const [selectedInLaneId, setSelectedInLaneId] = useState<string | undefined>(undefined)
+  const [selectedInLaneId, setSelectedInLaneId] = useState('')
+  const [isPending, startTransition] = useTransition()
 
   if (!open) return null
 
-  const handleConfirm = async () => {
-    try {
-      await onSwap(outLane.id, selectedInLaneId)
-    } catch (err) {
-      console.error("Swap failed:", err)
-    }
+  const handleConfirm = () => {
+    startTransition(async () => {
+      try {
+        // A retire is not a swap to `undefined` — call with one argument so
+        // the action takes its retire path rather than the swap path.
+        if (selectedInLaneId) {
+          await onSwap(outLane.id, selectedInLaneId)
+        } else {
+          await onSwap(outLane.id)
+        }
+      } catch (err) {
+        console.error("Swap failed:", err)
+      }
+    })
   }
 
   return (
@@ -55,26 +64,26 @@ export default function LaneSwapModal({
             <p className="text-sm text-zinc-500">No inactive lanes available</p>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label
+                htmlFor="replacement-select"
+                className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+              >
                 Select a replacement lane:
-              </p>
-              <div className="max-h-48 overflow-y-auto space-y-1">
+              </label>
+              <select
+                id="replacement-select"
+                data-testid="replacement-select"
+                value={selectedInLaneId}
+                onChange={(e) => setSelectedInLaneId(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+              >
+                <option value="">Pick a replacement lane</option>
                 {inactiveLanes.map((lane) => (
-                  <button
-                    key={lane.id}
-                    type="button"
-                    onClick={() => setSelectedInLaneId(lane.id)}
-                    className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                      selectedInLaneId === lane.id
-                        ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200'
-                        : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    <span>{lane.emoji}</span>
-                    <span>{lane.name}</span>
-                  </button>
+                  <option key={lane.id} value={lane.id}>
+                    {lane.emoji} {lane.name}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
           )}
 
@@ -86,7 +95,7 @@ export default function LaneSwapModal({
                 className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
                 onChange={(e) => {
                   if (e.target.checked) {
-                    setSelectedInLaneId(undefined)
+                    setSelectedInLaneId('')
                   }
                 }}
               />
@@ -108,8 +117,9 @@ export default function LaneSwapModal({
           </button>
           <button
             type="button"
+            data-testid="confirm-swap"
             onClick={handleConfirm}
-            disabled={!selectedInLaneId && mustPickReplacement}
+            disabled={isPending || (mustPickReplacement && !selectedInLaneId)}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none"
           >
             {mustPickReplacement ? 'Confirm Swap' : 'Retire Lane'}

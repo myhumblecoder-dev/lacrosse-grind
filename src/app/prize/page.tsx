@@ -37,8 +37,12 @@ export default async function PrizePage() {
       }
     : {}
 
+  // Every lane Eddie has ever trained, not just the active ones. The grid
+  // answers "what happened this season", and a lane he retired still earned
+  // the check-ins it earned — filtering on isActive here would erase them
+  // from weeks he already qualified, so swapping a lane would silently undo
+  // his season. TODAY is the page that cares about what is active now.
   const lanes = await prisma.lane.findMany({
-    where: { isActive: true },
     select: {
       targetPerWeek: true,
       checkIns: {
