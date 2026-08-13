@@ -8,7 +8,17 @@ const LANES = [
   { id: '2', name: 'Swimming', emoji: '🏊', isActive: false, targetPerWeek: 2 },
 ]
 
-const actions = () => ({ updateLane: vi.fn(), setActive: vi.fn(), deleteLane: vi.fn() })
+const SWAP_OK = { mustPickReplacement: false, canRetire: true, blocked: false }
+const INACTIVE = [{ id: '2', name: 'Swimming', emoji: '🏊' }]
+
+const actions = () => ({
+  updateLane: vi.fn(),
+  setActive: vi.fn(),
+  deleteLane: vi.fn(),
+  onSwapLane: vi.fn(),
+  swapState: SWAP_OK,
+  inactiveLanes: INACTIVE,
+})
 
 describe('LaneList', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -60,5 +70,36 @@ describe('LaneList', () => {
     await user.type(nameInput, 'Sprints')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(a.updateLane).toHaveBeenCalledWith('1', expect.objectContaining({ name: 'Sprints' }))
+  })
+
+  it('offers a swap on each lane when the season allows a change', () => {
+    render(<LaneList lanes={LANES} {...actions()} />)
+
+    expect(screen.getByTestId('swap-btn-1')).toBeInTheDocument()
+  })
+
+  it('offers no swap when a change would break the three-lane floor', () => {
+    const a = actions()
+    render(
+      <LaneList
+        lanes={LANES}
+        {...a}
+        swapState={{ mustPickReplacement: false, canRetire: false, blocked: true }}
+      />
+    )
+
+    expect(screen.queryByTestId('swap-btn-1')).not.toBeInTheDocument()
+  })
+
+  it('confirming the modal swaps the lane and closes it', async () => {
+    const user = userEvent.setup()
+    const a = actions()
+    render(<LaneList lanes={LANES} {...a} />)
+
+    await user.click(screen.getByTestId('swap-btn-1'))
+    await user.click(screen.getByTestId('confirm-swap'))
+
+    expect(a.onSwapLane).toHaveBeenCalledWith('1')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
