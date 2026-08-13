@@ -26,4 +26,13 @@ describe('validateSwap', () => {
     const result = validateSwap(4)
     expect(result.canRetire).toBe(true)
   })
+
+  it('exactly three lanes must pick a replacement', () => {
+    const result = validateSwap(3)
+    expect(result).toEqual({
+      canRetire: false,
+      mustPickReplacement: true,
+      blocked: false
+    })
+  })
 })
