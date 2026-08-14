@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { laneSchema, checkInSchema, bossBattleSchema, reflectionSchema, prizeSchema } from './validation'
+import { swapSchema, laneSchema, checkInSchema, bossBattleSchema, reflectionSchema, prizeSchema } from './validation'
 
 describe('validation', () => {
   it('laneSchema valid input passes', () => {
@@ -123,4 +123,28 @@ describe('validation', () => {
       expect(result.data.reasons).toEqual([])
     }
   })
-}) 
+
+  describe('swapSchema', () => {
+    it('a missing outLaneId is rejected', () => {
+      const invalidData = { inLaneId: 'some-id' }
+      const result = swapSchema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+    })
+
+    it('a valid outLaneId with no inLaneId is accepted', () => {
+      const validData = { outLaneId: 'some-id' }
+      const result = swapSchema.safeParse(validData)
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.outLaneId).toBe('some-id')
+        expect(result.data.inLaneId).toBeUndefined()
+      }
+    })
+
+    it('an outLaneId of empty string is rejected', () => {
+      const invalidData = { outLaneId: '', inLaneId: 'some-id' }
+      const result = swapSchema.safeParse(invalidData)
+      expect(result.success).toBe(false)
+    })
+  })
+})
