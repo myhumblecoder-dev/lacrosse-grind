@@ -3,6 +3,7 @@
 import { useState } from "react"
 import ToggleSwitch from "@/components/ToggleSwitch"
 import ConfirmModal from "@/components/ConfirmModal"
+import LaneSwapModal from "@/components/LaneSwapModal"
 import { PencilIcon, TrashIcon } from "@/components/icons"
 
 interface Lane {
@@ -21,6 +22,9 @@ interface LaneListProps {
   ) => Promise<unknown>
   setActive: (id: string, isActive: boolean) => Promise<unknown>
   deleteLane: (id: string) => Promise<unknown>
+  onSwapLane: (outLaneId: string, inLaneId?: string) => Promise<unknown>
+  swapState: { mustPickReplacement: boolean; canRetire: boolean; blocked: boolean }
+  inactiveLanes: { id: string; name: string; emoji: string }[]
 }
 
 const EMOJI_OPTIONS: { cp: number; label: string }[] = [
@@ -37,10 +41,20 @@ const EMOJI_OPTIONS: { cp: number; label: string }[] = [
   { cp: 0x1f525, label: "Conditioning" },
 ]
 
-export default function LaneList({ lanes, updateLane, setActive, deleteLane }: LaneListProps) {
+export default function LaneList({
+  lanes,
+  updateLane,
+  setActive,
+  deleteLane,
+  onSwapLane,
+  swapState,
+  inactiveLanes,
+}: LaneListProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState({ name: "", emoji: "", targetPerWeek: 5 })
   const [confirmLane, setConfirmLane] = useState<Lane | null>(null)
+  // One modal shared by every row: `swapLane` is the lane being traded out.
+  const [swapLane, setSwapLane] = useState<Lane | null>(null)
 
   function startEdit(lane: Lane) {
     setEditingId(lane.id)
@@ -139,6 +153,16 @@ export default function LaneList({ lanes, updateLane, setActive, deleteLane }: L
                     onChange={(next) => setActive(lane.id, next)}
                     label={`Toggle ${lane.name}`}
                   />
+                  {!swapState.blocked && (
+                    <button
+                      data-testid={`swap-btn-${lane.id}`}
+                      aria-label={`Swap ${lane.name}`}
+                      onClick={() => setSwapLane(lane)}
+                      className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+                    >
+                      Swap
+                    </button>
+                  )}
                   <button
                     aria-label={`Edit ${lane.name}`}
                     onClick={() => startEdit(lane)}
@@ -171,6 +195,24 @@ export default function LaneList({ lanes, updateLane, setActive, deleteLane }: L
         }}
         onCancel={() => setConfirmLane(null)}
       />
+
+      {swapLane && (
+        <LaneSwapModal
+          open={true}
+          outLane={{ id: swapLane.id, name: swapLane.name, emoji: swapLane.emoji }}
+          inactiveLanes={inactiveLanes}
+          mustPickReplacement={swapState.mustPickReplacement}
+          canRetire={swapState.canRetire}
+          onSwap={async (outLaneId, inLaneId) => {
+            // A retire is not a swap to `undefined`: pass one argument so the
+            // action takes its retire path.
+            if (inLaneId) await onSwapLane(outLaneId, inLaneId)
+            else await onSwapLane(outLaneId)
+            setSwapLane(null)
+          }}
+          onCancel={() => setSwapLane(null)}
+        />
+      )}
     </>
   )
 }

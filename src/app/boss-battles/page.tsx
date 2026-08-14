@@ -3,6 +3,9 @@ import { getLastCompletedWeekStart, getWeekStart, formatWeekLabel } from "@/lib/
 import { getTrainingDay } from "@/lib/trainingDay"
 import { createBossBattle } from "@/app/actions/createBossBattle"
 import BossBattleForm from "@/components/BossBattleForm"
+import BossBattleSwapTrigger from "@/components/BossBattleSwapTrigger"
+import { swapLane } from "@/app/actions/swapLane"
+import { validateSwap } from "@/lib/validateSwap"
 
 export const dynamic = "force-dynamic"
 
@@ -25,6 +28,13 @@ export default async function BossBattlesPage() {
       },
     },
   })
+
+  // What a lane change would cost right now, decided once for the page.
+  const inactiveLanes = await db.lane.findMany({
+    where: { isActive: false },
+    select: { id: true, name: true, emoji: true },
+  })
+  const swapState = validateSwap(lanes.length)
 
   return (
     <main className="max-w-2xl mx-auto space-y-8 p-6">
@@ -67,11 +77,22 @@ export default async function BossBattlesPage() {
                   existingReport={existing?.selfReport}
                   existingCoachNote={existing?.coachNote ?? undefined}
                   createBossBattle={async (data) => {
-                    "use server"
+                      "use server"
                     const r = await createBossBattle(data)
                     return { coachNote: r.ok ? r.coachNote : undefined }
                   }}
                 />
+                {existing && (
+                  <BossBattleSwapTrigger
+                    lane={{ id: lane.id, name: lane.name, emoji: lane.emoji }}
+                    inactiveLanes={inactiveLanes}
+                    swapState={swapState}
+                    onSwapLane={async (outLaneId, inLaneId) => {
+                      "use server"
+                      return swapLane({ outLaneId, inLaneId })
+                    }}
+                  />
+                )}
               </div>
             ) : (
               <p className="text-zinc-500 text-sm">No battle this week — target missed.</p>

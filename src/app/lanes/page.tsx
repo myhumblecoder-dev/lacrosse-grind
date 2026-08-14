@@ -3,6 +3,8 @@ import { createLane } from "@/app/actions/createLane"
 import { updateLane } from "@/app/actions/updateLane"
 import { setLaneActive } from "@/app/actions/setLaneActive"
 import { deleteLane } from "@/app/actions/deleteLane"
+import { swapLane } from "@/app/actions/swapLane"
+import { validateSwap } from "@/lib/validateSwap"
 import LaneList from "@/components/LaneList"
 import LaneForm from "@/components/LaneForm"
 
@@ -12,6 +14,14 @@ export default async function LanesPage() {
   const lanes = await prisma.lane.findMany({
     orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }],
   })
+
+  // The floor of three governs every lane change, so the page decides once
+  // what is legal right now and hands the answer down.
+  const activeLaneCount = lanes.filter((l) => l.isActive).length
+  const swapState = validateSwap(activeLaneCount)
+  const inactiveLanes = lanes
+    .filter((l) => !l.isActive)
+    .map((l) => ({ id: l.id, name: l.name, emoji: l.emoji }))
 
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
@@ -33,6 +43,12 @@ export default async function LanesPage() {
         deleteLane={async (id) => {
           "use server"
           return deleteLane(id)
+        }}
+        swapState={swapState}
+        inactiveLanes={inactiveLanes}
+        onSwapLane={async (outLaneId, inLaneId) => {
+          "use server"
+          return swapLane({ outLaneId, inLaneId })
         }}
       />
       <div className="border-t pt-6">
