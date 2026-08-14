@@ -8,6 +8,7 @@ import CheckInCard from "@/components/CheckInCard"
 import { WeeklyProgress } from "@/components/WeeklyProgress"
 import SeasonStartButton from "@/components/SeasonStartButton"
 import SeasonSetupPanel from "@/components/SeasonSetupPanel"
+import SeasonTimelineNote from "@/components/SeasonTimelineNote"
 import { getSeasonReadiness } from "@/lib/seasonReadiness"
 
 export const dynamic = "force-dynamic"
@@ -36,6 +37,13 @@ export default async function DashboardPage() {
     <main className="max-w-2xl mx-auto space-y-6 p-6">
       <div className="space-y-4">
         <SeasonStartButton hasStarted={hasStarted} isReady={readiness.isReady} />
+        {/* Pressing START on a Friday commits Eddie to a season that begins
+            on Monday. Without this the button just turned red and nothing
+            else changed, which reads as "it didn't work". */}
+        <SeasonTimelineNote
+          seasonStart={prize?.seasonStart ?? null}
+          today={today}
+        />
         {!hasStarted && !readiness.isReady && (
           <SeasonSetupPanel 
             laneCount={activeLaneCount} 
