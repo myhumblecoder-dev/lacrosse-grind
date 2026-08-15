@@ -2,10 +2,12 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import LaneList from './LaneList'
+import { LANES_REQUIRED } from '@/lib/season'
 
 const LANES = [
   { id: '1', name: 'Running', emoji: '🏃', isActive: true, targetPerWeek: 3 },
   { id: '2', name: 'Swimming', emoji: '🏊', isActive: false, targetPerWeek: 2 },
+  { id: '3', name: 'Weights', emoji: '🏋️', isActive: true, targetPerWeek: 5 },
 ]
 
 const SWAP_OK = { mustPickReplacement: false, canRetire: true, blocked: false }
@@ -22,6 +24,19 @@ const actions = () => ({
 
 describe('LaneList', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('the header counts only active lanes', async () => {
+    const activeCount = LANES.filter(l => l.isActive).length
+    render(<LaneList lanes={LANES} {...actions()} />)
+    const header = screen.getByTestId('lane-count')
+    expect(header).toHaveTextContent(`${activeCount} of ${LANES_REQUIRED} lanes active`)
+  })
+
+  it('the header names how many lanes the season needs', async () => {
+    render(<LaneList lanes={LANES} {...actions()} />)
+    const header = screen.getByTestId('lane-count')
+    expect(header).toHaveTextContent(new RegExp(`of ${LANES_REQUIRED} lanes active`))
+  })
 
   it('renders lanes with a toggle reflecting active state', () => {
     render(<LaneList lanes={LANES} {...actions()} />)

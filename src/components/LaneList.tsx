@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { LANES_REQUIRED } from "@/lib/season"
 import ToggleSwitch from "@/components/ToggleSwitch"
 import ConfirmModal from "@/components/ConfirmModal"
 import LaneSwapModal from "@/components/LaneSwapModal"
@@ -77,8 +78,13 @@ export default function LaneList({
     return <p className="text-zinc-500">No lanes yet — add one below.</p>
   }
 
+  const activeCount = lanes.filter((l) => l.isActive).length
+
   return (
     <>
+      <div data-testid="lane-count" className="mb-4 text-sm font-medium text-zinc-400">
+        {activeCount} of {LANES_REQUIRED} lanes active
+      </div>
       <ol className="w-full space-y-3">
         {lanes.map((lane) => (
           <li key={lane.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
