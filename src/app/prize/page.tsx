@@ -3,6 +3,7 @@ import { upsertPrize } from "@/app/actions/upsertPrize"
 import { deletePrize } from "@/app/actions/deletePrize"
 import { uploadPrizePhoto } from "@/app/actions/uploadPrizePhoto"
 import PrizeSection from "@/components/PrizeSection"
+import SeasonTimelineNote from "@/components/SeasonTimelineNote"
 import SeasonProgress from "@/components/SeasonProgress"
 import { SEASON_WEEKS } from "@/lib/season"
 import { getSeasonWeeksFrom } from "@/lib/seasonWindow"
@@ -89,6 +90,7 @@ export default async function PrizePage() {
         }}
       />
 
+      <SeasonTimelineNote seasonStart={seasonStart} today={getTrainingDay(new Date())} />
       <SeasonProgress progress={progress} />
     </main>
   )
