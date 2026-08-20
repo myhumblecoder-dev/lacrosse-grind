@@ -35,13 +35,10 @@ describe('SeasonStartButton', () => {
     expect(startSeason).toHaveBeenCalled()
   })
 
-  it('started renders the reset button and calls resetSeason when clicked', async () => {
-    const user = userEvent.setup()
+  it('renders nothing once the season has started', () => {
+    // Reset moved to the bottom of the page behind a confirmation modal
+    // (SeasonResetButton) — a started season renders nothing up here.
     render(<SeasonStartButton hasStarted={true} isReady={true} />)
-    const button = screen.getByTestId('season-reset')
-    expect(button).toBeInTheDocument()
-    expect(button).toHaveClass('bg-red-600')
-    await user.click(button)
-    expect(resetSeason).toHaveBeenCalled()
+    expect(screen.queryByTestId('season-reset')).toBeNull()
   })
 })
