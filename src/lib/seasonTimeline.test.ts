@@ -10,8 +10,8 @@ describe('describeSeason', () => {
     const s = describeSeason(null, FRIDAY)
 
     expect(s.phase).toBe('not-started')
-    expect(s.startsOn.toDateString()).toBe('Mon Aug 17 2026')
-    expect(s.endsOn.toDateString()).toBe('Mon Nov 16 2026')
+    expect(s.startsOn.toISOString()).toBe('2026-08-17T00:00:00.000Z')
+    expect(s.endsOn.toISOString()).toBe('2026-11-16T00:00:00.000Z')
   })
 
   it('says the season is scheduled once he presses, before it begins', () => {
@@ -19,7 +19,7 @@ describe('describeSeason', () => {
     const s = describeSeason(new Date('2026-08-17T00:00:00.000Z'), FRIDAY)
 
     expect(s.phase).toBe('scheduled')
-    expect(s.startsOn.toDateString()).toBe('Mon Aug 17 2026')
+    expect(s.startsOn.toISOString()).toBe('2026-08-17T00:00:00.000Z')
     expect(s.weekNumber).toBeNull()
   })
 
@@ -46,6 +46,6 @@ describe('describeSeason', () => {
   it('reports the last day of the final week, not the day it rolls over', () => {
     const s = describeSeason(null, FRIDAY)
     // 13 weeks from Mon 17 Aug: the season is done at the end of Sun 15 Nov.
-    expect(s.lastDay.toDateString()).toBe('Sun Nov 15 2026')
+    expect(s.lastDay.toISOString()).toBe('2026-11-15T00:00:00.000Z')
   })
 })

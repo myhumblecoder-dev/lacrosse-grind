@@ -13,6 +13,9 @@ vi.mock('@/components/SeasonStartButton', () => ({
   ),
 }))
 
+vi.mock('@/components/SeasonResetButton', () => ({
+  default: () => <div data-testid="season-reset-open" />,
+}))
 vi.mock('@/components/SeasonSetupPanel', () => ({
   default: ({ laneCount, lanesNeeded, hasPrize }: any) => (
     <div data-testid="season-setup-panel" data-lane-count={String(laneCount)} data-lanes-needed={String(lanesNeeded)} data-has-prize={String(hasPrize)}>
@@ -103,5 +106,29 @@ describe('Page', () => {
 
     const panel = screen.getByTestId('season-setup-panel')
     expect(panel.getAttribute('data-lanes-needed')).toBe(String(LANES_REQUIRED))
+  })
+
+  it('reset lives at the bottom once started', async () => {
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({
+      id: 'prize',
+      seasonStart: new Date(),
+    } as never)
+
+    const { container } = render(await Page())
+
+    const main = container.querySelector('main')
+    const reset = screen.getByTestId('season-reset-open')
+    expect(main?.lastElementChild).toBe(reset)
+  })
+
+  it('no reset before the season starts', async () => {
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({
+      id: 'prize',
+      seasonStart: null,
+    } as never)
+
+    render(await Page())
+
+    expect(screen.queryByTestId('season-reset-open')).toBeNull()
   })
 })
