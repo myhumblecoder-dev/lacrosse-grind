@@ -7,6 +7,7 @@ import { deleteCheckIn } from "@/app/actions/deleteCheckIn"
 import CheckInCard from "@/components/CheckInCard"
 import { WeeklyProgress } from "@/components/WeeklyProgress"
 import SeasonStartButton from "@/components/SeasonStartButton"
+import SeasonResetButton from "@/components/SeasonResetButton"
 import SeasonSetupPanel from "@/components/SeasonSetupPanel"
 import SeasonTimelineNote from "@/components/SeasonTimelineNote"
 import { getSeasonReadiness } from "@/lib/seasonReadiness"
@@ -89,6 +90,7 @@ export default async function DashboardPage() {
           </div>
         )
       })}
+      {hasStarted && <SeasonResetButton />}
     </main>
   )
 }
