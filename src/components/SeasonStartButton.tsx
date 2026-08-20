@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { startSeason } from '@/app/actions/startSeason'
-import { resetSeason } from '@/app/actions/resetSeason'
 
 interface SeasonStartButtonProps {
   hasStarted: boolean
@@ -24,18 +23,6 @@ export default function SeasonStartButton({ hasStarted, isReady }: SeasonStartBu
     }
   }
 
-  const handleReset = async () => {
-    setPending(true)
-    try {
-      await resetSeason()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to reset season'
-      console.error(msg)
-    } finally {
-      setPending(false)
-    }
-  }
-
   if (!hasStarted) {
     return (
       <button
@@ -50,15 +37,7 @@ export default function SeasonStartButton({ hasStarted, isReady }: SeasonStartBu
     )
   }
 
-  return (
-    <button
-      type="button"
-      data-testid="season-reset"
-      disabled={pending}
-      onClick={handleReset}
-      className="w-full rounded-lg py-4 text-xl font-bold text-white bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {pending ? 'Resetting...' : 'Reset my season'}
-    </button>
-  )
+  // Reset lives at the BOTTOM of the page behind a confirmation modal
+  // (SeasonResetButton) — a started season renders nothing up here.
+  return null
 }
