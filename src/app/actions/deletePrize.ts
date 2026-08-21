@@ -1,17 +1,21 @@
 import { prisma as db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/tenancy";
 
 export async function deletePrize(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
   try {
-    await db.prize.delete({
-      where: { id: "prize" },
+    const { count } = await db.prize.deleteMany({
+      where: { userId },
     });
+
+    if (count === 0) {
+      return { ok: false, error: 'not-found' };
+    }
+
     revalidatePath("/prize");
     return { ok: true };
   } catch (err) {
-    if (err instanceof Error && (err.message.includes("P2025") || (err as { code?: string }).code === "P2025")) {
-      return { ok: false, error: "not-found" };
-    }
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
 }
