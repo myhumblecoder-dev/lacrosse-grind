@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { swapSchema } from '@/lib/validation'
 import { validateSwap } from '@/lib/validateSwap'
+import { requireUserId } from '@/lib/tenancy'
 
 type SwapResult = { ok: true } | { ok: false; error: string }
 
@@ -20,17 +21,35 @@ type SwapResult = { ok: true } | { ok: false; error: string }
  * deleting them would let a swap quietly undo his season.
  */
 export async function swapLane(input: unknown): Promise<SwapResult> {
+  const userId = await requireUserId()
+
   const parsed = swapSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: 'validation' }
 
   const { outLaneId, inLaneId } = parsed.data
 
-  const activeLaneCount = await prisma.lane.count({ where: { isActive: true } })
+  const activeLaneCount = await prisma.lane.count({
+    where: { isActive: true, userId }
+  })
   const decision = validateSwap(activeLaneCount)
 
   if (decision.blocked) return { ok: false, error: 'blocked' }
   if (decision.mustPickReplacement && !inLaneId) {
     return { ok: false, error: 'replacement-required' }
+  }
+
+  // Verify ownership of outLaneId
+  const outLane = await prisma.lane.findFirst({
+    where: { id: outLaneId, userId }
+  })
+  if (!outLane) return { ok: false, error: 'not-found' }
+
+  // Verify ownership of inLaneId if present
+  if (inLaneId) {
+    const inLane = await prisma.lane.findFirst({
+      where: { id: inLaneId, userId }
+    })
+    if (!inLane) return { ok: false, error: 'not-found' }
   }
 
   if (inLaneId) {
