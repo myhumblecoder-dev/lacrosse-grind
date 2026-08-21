@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db"
+import { requireUserId } from "@/lib/tenancy"
 import { buildWeekRecaps } from "@/lib/weekRecap"
 import { formatWeekLabel, getWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
@@ -6,8 +7,10 @@ import { getTrainingDay } from "@/lib/trainingDay"
 export const dynamic = "force-dynamic"
 
 export default async function HistoryPage() {
-  const prize = await prisma.prize.findUnique({ where: { id: "prize" } })
+  const userId = await requireUserId()
+  const prize = await prisma.prize.findUnique({ where: { userId } })
   const lanes = await prisma.lane.findMany({
+    where: { userId },
     orderBy: [
       { isActive: "desc" },
       { sortOrder: "asc" },
