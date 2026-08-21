@@ -14,9 +14,11 @@ export default async function HistoryPage() {
   const today = getTrainingDay(new Date())
   const start = new Date(today.getTime() - 29 * DAY_MS)
 
-  const lanes = await prisma.lane.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
+  const lanesRaw = await prisma.lane.findMany({
+    orderBy: [
+      { isActive: "desc" },
+      { sortOrder: "asc" },
+    ],
     include: {
       checkIns: {
         where: { date: { gte: start } },
@@ -24,6 +26,8 @@ export default async function HistoryPage() {
       },
     },
   })
+
+  const lanes = lanesRaw.filter((lane) => !( !lane.isActive && lane.checkIns.length === 0 ))
 
   const days = Array.from({ length: 30 }, (_, i) => new Date(start.getTime() + i * DAY_MS))
 
@@ -40,9 +44,17 @@ export default async function HistoryPage() {
           lane.checkIns.map((c) => [utcMidnight(c.date).getTime(), c])
         )
         return (
-          <section key={lane.id} className="space\nspace-y-2">
+          <section
+            key={lane.id}
+            className={`space-y-2 ${!lane.isActive ? "opacity-60" : ""}`}
+          >
             <h2 className="text-lg font-semibold">
               {lane.emoji} {lane.name} — {streak}🔥
+              {!lane.isActive && (
+                <span data-testid="retired-tag" className="ml-2 text-xs text-zinc-500">
+                  retired
+                </span>
+              )}
             </h2>
             <div className="grid grid-cols-10 gap-1">
               {days.map((d) => {
