@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma as db } from '@/lib/db'
 import type { Lane } from '@prisma/client'
 import { updateLane } from './updateLane'
+import { requireUserId } from '@/lib/tenancy'
 import { revalidatePath } from 'next/cache'
+
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -109,18 +112,19 @@ const makeLane = (overrides: Partial<Lane> = {}): Lane =>
 describe('updateLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue('u1')
   })
 
   it('valid patch updates lane and returns ok', async () => {
     const id = 'lane-123'
     const patch = { name: 'New Lane Name' }
-    vi.mocked(db.lane.update).mockResolvedValue(makeLane({ id, name: 'New Lane Name' }))
+    vi.mocked(db.lane.updateMany).mockResolvedValue({ count: 1 })
 
     const result = await updateLane(id, patch)
 
     expect(result).toEqual({ ok: true })
-    expect(db.lane.update).toHaveBeenCalledWith({
-      where: { id },
+    expect(db.lane.updateMany).toHaveBeenCalledWith({
+      where: { id, userId: 'u1' },
       data: patch,
     })
     expect(revalidatePath).toHaveBeenCalledWith('/lanes')
@@ -129,13 +133,13 @@ describe('updateLane', () => {
   it('empty object patch is valid and returns ok', async () => {
     const id = 'lane-123'
     const patch = {}
-    vi.mocked(db.lane.update).mockResolvedValue(makeLane({ id }))
+    vi.mocked(db.lane.updateMany).mockResolvedValue({ count: 1 })
 
     const result = await updateLane(id, patch)
 
     expect(result).toEqual({ ok: true })
-    expect(db.lane.update).toHaveBeenCalledWith({
-      where: { id },
+    expect(db.lane.updateMany).toHaveBeenCalledWith({
+      where: { id, userId: 'u1' },
       data: {},
     })
     expect(revalidatePath).toHaveBeenCalledWith('/lanes')
@@ -148,7 +152,7 @@ describe('updateLane', () => {
     const result = await updateLane(id, patch)
 
     expect(result).toEqual({ ok: false, error: 'validation' })
-    expect(db.lane.update).not.toHaveBeenCalled()
+    expect(db.lane.updateMany).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
   })
 
@@ -156,8 +160,28 @@ describe('updateLane', () => {
     const id = 'lane-123'
     const patch = { name: 'New Name' }
     const dbError = new Error('Database connection failed')
-    vi.mocked(db.lane.update).mockRejectedValue(dbError)
+    vi.mocked(db.lane.updateMany).mockRejectedValue(dbError)
 
     await expect(updateLane(id, patch)).rejects.toThrow('Database connection failed')
+  })
+
+  it("another user's lane id returns not-found", async () => {
+    vi.mocked(db.lane.updateMany).mockResolvedValue({ count: 0 })
+
+    const result = await updateLane('foreign-lane', { name: 'X' })
+
+    expect(result).toEqual({ ok: false, error: 'not-found' })
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('the update is scoped to the owner', async () => {
+    vi.mocked(db.lane.updateMany).mockResolvedValue({ count: 1 })
+
+    await updateLane('lane-1', { name: 'X' })
+
+    expect(db.lane.updateMany).toHaveBeenCalledWith({
+      where: { id: 'lane-1', userId: 'u1' },
+      data: { name: 'X' },
+    })
   })
 })
