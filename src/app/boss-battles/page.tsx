@@ -80,7 +80,7 @@ export default async function BossBattlesPage() {
                   laneId={lane.id}
                   laneName={lane.name}
                   weekStarting={thisWeekStart}
-                  existingReport={existing?.selfReport}
+                  existingReport={existing?.selfReport ?? undefined}
                   existingCoachNote={existing?.coachNote ?? undefined}
                   createBossBattle={async (data) => {
                     "use server"
