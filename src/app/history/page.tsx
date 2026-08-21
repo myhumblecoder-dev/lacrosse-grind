@@ -1,21 +1,12 @@
 import { prisma } from "@/lib/db"
-import { computeStreak } from "@/lib/streak"
-import { getTrainingDay } from "@/lib/trainingDay"
-import { getWeekStart } from "@/lib/weekUtils"
+import { buildWeekRecaps } from "@/lib/weekRecap"
+import { formatWeekLabel } from "@/lib/weekUtils"
 
 export const dynamic = "force-dynamic"
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function utcMidnight(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-}
-
 export default async function HistoryPage() {
-  const today = getTrainingDay(new Date())
-  const start = new Date(today.getTime() - 29 * DAY_MS)
-
-  const lanesRaw = await prisma.lane.findMany({
+  const prize = await prisma.prize.findUnique({ where: { id: "prize" } })
+  const lanes = await prisma.lane.findMany({
     orderBy: [
       { isActive: "desc" },
       { sortOrder: "asc" },
@@ -23,67 +14,57 @@ export default async function HistoryPage() {
     include: {
       bossBattles: true,
       checkIns: {
-        where: { date: { gte: start } },
+        ...(prize?.seasonStart ? { where: { date: { gte: prize.seasonStart } } } : {}),
         orderBy: { date: "asc" },
       },
     },
   })
 
-  const lanes = lanesRaw.filter((lane) => !( !lane.isActive && lane.checkIns.length === 0 ))
-
-  const days = Array.from({ length: 30 }, (_, i) => new Date(start.getTime() + i * DAY_MS))
+  const recaps = buildWeekRecaps(lanes)
 
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
       <h1 className="text-2xl font-bold">History</h1>
-      <p className="mt-1 text-sm text-zinc-500">Your last 30 days at a glance — green for a session, blue for a rest day, purple for a boss-battle week. Watch the consistency stack up.</p>
-      {lanes.map((lane) => {
-        const streak = computeStreak(
-          lane.checkIns.map((c) => ({ date: c.date, isRest: c.isRest })),
-          today
-        )
-        const byDay = new Map(
-          lane.checkIns.map((c) => [utcMidnight(c.date).getTime(), c])
-        )
-        // A boss battle marks its whole week: session squares turn purple.
-        const battleWeeks = new Set(
-          lane.bossBattles.map((b) => b.weekStarting.getTime())
-        )
-        return (
-          <section
-            key={lane.id}
-            className={`space-y-2 ${!lane.isActive ? "opacity-60" : ""}`}
-          >
-            <h2 className="text-lg font-semibold">
-              {lane.emoji} {lane.name} — {streak}🔥
-              {!lane.isActive && (
-                <span data-testid="retired-tag" className="ml-2 text-xs text-zinc-500">
-                  retired
-                </span>
-              )}
-            </h2>
-            <div className="grid grid-cols-10 gap-1">
-              {days.map((d) => {
-                const c = byDay.get(d.getTime())
-                const cls = c
-                  ? c.isRest
-                    ? "bg-blue-300"
-                    : battleWeeks.has(getWeekStart(d).getTime())
-                      ? "bg-purple-500"
-                      : "bg-green-400"
-                  : "bg-zinc-800"
-                return (
+      <p className="mt-1 text-sm text-zinc-500">Your season, week by week — green for a session, blue for a rest day, purple for a boss-battle week. Only days you showed up are here.</p>
+      {recaps.map((recap) => (
+        <section key={recap.weekStart.getTime()} className="space-y-3">
+          <h2 className="text-lg font-semibold">Week of {formatWeekLabel(recap.weekStart)}</h2>
+          {recap.lanes.map((lane) => (
+            <div
+              key={lane.id}
+              className={`flex items-center gap-3 ${!lane.isActive ? "opacity-60" : ""}`}
+            >
+              <span className="w-48 truncate">
+                {lane.emoji} {lane.name}
+                {!lane.isActive && (
+                  <span data-testid="retired-tag" className="ml-2 text-xs text-zinc-500">
+                    retired
+                  </span>
+                )}
+              </span>
+              <div className="flex gap-1">
+                {lane.days.map((d) => (
                   <div
-                    key={d.getTime()}
-                    className={`h-6 w-6 rounded ${cls}`}
-                    title={d.toISOString().slice(0, 10)}
+                    key={d.date.getTime()}
+                    className={`h-6 w-6 rounded ${
+                      d.isRest
+                        ? "bg-blue-300"
+                        : lane.battleFought
+                          ? "bg-purple-500"
+                          : "bg-green-400"
+                    }`}
+                    title={d.date.toISOString().slice(0, 10)}
                   />
-                )
-              })}
+                ))}
+              </div>
+              <span className="text-sm text-zinc-600">
+                {lane.hits} / {lane.target} days
+              </span>
+              {lane.battleFought && <span className="text-sm">⚔️ boss fought</span>}
             </div>
-          </section>
-        )
-      })}
+          ))}
+        </section>
+      ))}
     </main>
   )
 }
