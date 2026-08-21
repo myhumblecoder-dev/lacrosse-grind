@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { prisma as db } from '@/lib/db'
+import { getLastCompletedWeekStart, getWeekStart, formatWeekLabel } from '@/lib/weekUtils'
+import { getTrainingDay } from '@/lib/trainingDay'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -30,6 +32,87 @@ describe('Page', () => {
     // (i.e. the second, inactive-lanes call) resolves empty. A Once here
     // would be consumed FIFO by the FIRST (active) call instead.
     vi.mocked(db.lane.findMany).mockResolvedValue([])
+  })
+
+  it('an unfought last-week victory stays fightable', async () => {
+    const trainingDay = getTrainingDay(new Date())
+    const thisWeekStart = getWeekStart(trainingDay)
+    const lastWeekStart = getLastCompletedWeekStart(trainingDay)
+
+    const lane = {
+      id: 'l1',
+      name: 'Strength',
+      emoji: '💪',
+      targetPerWeek: 2,
+      isActive: true,
+      sortOrder: 1,
+      checkIns: [
+        { date: new Date(lastWeekStart.getTime() + 86400000), laneId: 'l1', isRest: false },
+        { date: new Date(lastWeekStart.getTime() + 172800000), laneId: 'l1', isRest: false },
+      ],
+      bossBattles: [],
+    } as any
+
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([lane])
+
+    const PageComponent = await Page()
+    render(PageComponent)
+
+    expect(screen.getByText(`Last week's unfought boss — ${formatWeekLabel(lastWeekStart)}`)).toBeInTheDocument()
+    // the lane appears twice: its current-week card AND the grace section
+    expect(screen.getAllByText(/💪 Strength/)).toHaveLength(2)
+  })
+
+  it('a fought last week stays quiet', async () => {
+    const trainingDay = getTrainingDay(new Date())
+    const lastWeekStart = getLastCompletedWeekStart(trainingDay)
+
+    const lane = {
+      id: 'l1',
+      name: 'Strength',
+      emoji: '💪',
+      targetPerWeek: 2,
+      isActive: true,
+      sortOrder: 1,
+      checkIns: [
+        { date: new Date(lastWeekStart.getTime() + 86400000), laneId: 'l1', isRest: false },
+        { date: new Date(lastWeekStart.getTime() + 172800000), laneId: 'l1', isRest: false },
+      ],
+      bossBattles: [{ weekStarting: lastWeekStart, selfReport: 'Done', coachNote: 'Good' }],
+    } as any
+
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([lane])
+
+    const PageComponent = await Page()
+    render(PageComponent)
+
+    expect(screen.queryByText(/Last week's unfought boss/)).not.toBeInTheDocument()
+  }
+  )
+
+  it('a missed last week stays quiet', async () => {
+    const trainingDay = getTrainingDay(new Date())
+    const lastWeekStart = getLastCompletedWeekStart(trainingDay)
+
+    const lane = {
+      id: 'l1',
+      name: 'Strength',
+      emoji: '💪',
+      targetPerWeek: 2,
+      isActive: true,
+      sortOrder: 1,
+      checkIns: [
+        { date: new Date(lastWeekStart.getTime() + 86400000), laneId: 'l1', isRest: false },
+      ],
+      bossBattles: [],
+    } as any
+
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([lane])
+
+    const PageComponent = await Page()
+    render(PageComponent)
+
+    expect(screen.queryByText(/Last week's unfought boss/)).not.toBeInTheDocument()
   })
 
   it('a lane below target shows the unlock nudge', async () => {
@@ -87,6 +170,8 @@ describe('Page', () => {
   })
 
   it('the header names the current week', async () => {
+    const trainingDay = getTrainingDay(new Date())
+    const thisWeekStart = getWeekStart(trainingDay)
     const lane = {
       id: 'l1',
       name: 'Strength',
@@ -103,6 +188,6 @@ describe('Page', () => {
     const PageComponent = await Page()
     render(PageComponent)
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Boss Battles — week of/)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`Boss Battles — week of ${formatWeekLabel(thisWeekStart)}`)
   })
 })
