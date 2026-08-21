@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { getWeekStart, formatWeekLabel } from '@/lib/weekUtils'
+import { getTrainingDay } from '@/lib/trainingDay'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -168,8 +169,10 @@ describe('Page', () => {
 
   it('weeks render newest first with formatted headers', async () => {
     const { prisma } = await import('@/lib/db')
-    const early = new Date('2026-08-11T00:00:00.000Z')
-    const late = new Date('2026-08-18T00:00:00.000Z')
+    // anchored to the real current week so the newest section is always
+    // the running one ("This week") and the older one a plain past week
+    const late = getWeekStart(getTrainingDay(new Date()))
+    const early = new Date(late.getTime() - 7 * 24 * 60 * 60 * 1000)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([
       {
         id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
@@ -185,7 +188,7 @@ describe('Page', () => {
 
     const headers = screen.getAllByRole('heading', { level: 2 })
     expect(headers).toHaveLength(2)
-    expect(headers[0]).toHaveTextContent(`Week of ${formatWeekLabel(getWeekStart(late))}`)
+    expect(headers[0]).toHaveTextContent(`This week — ${formatWeekLabel(getWeekStart(late))}`)
     expect(headers[1]).toHaveTextContent(`Week of ${formatWeekLabel(getWeekStart(early))}`)
   })
 
@@ -224,5 +227,43 @@ describe('Page', () => {
     render(await Page())
 
     expect(screen.getAllByText('⚔️ boss fought')).toHaveLength(1)
+  })
+
+  it('the current week is headed This week', async () => {
+    const { prisma } = await import('@/lib/db')
+    const thisWeekStart = getWeekStart(getTrainingDay(new Date()))
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
+        bossBattles: [],
+        checkIns: [{ date: thisWeekStart, isRest: false }],
+      },
+    ] as never)
+
+    render(await Page())
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: `This week — ${formatWeekLabel(thisWeekStart)}` })
+    ).toBeInTheDocument()
+  })
+
+  it('a past week keeps the Week of header', async () => {
+    const { prisma } = await import('@/lib/db')
+    const thisWeekStart = getWeekStart(getTrainingDay(new Date()))
+    const pastDay = new Date(thisWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
+        bossBattles: [],
+        checkIns: [{ date: pastDay, isRest: false }],
+      },
+    ] as never)
+
+    render(await Page())
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: `Week of ${formatWeekLabel(getWeekStart(pastDay))}` })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/This week —/)).not.toBeInTheDocument()
   })
 })
