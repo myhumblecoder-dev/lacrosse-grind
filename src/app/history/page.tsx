@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { buildWeekRecaps } from "@/lib/weekRecap"
-import { formatWeekLabel } from "@/lib/weekUtils"
+import { formatWeekLabel, getWeekStart } from "@/lib/weekUtils"
+import { getTrainingDay } from "@/lib/trainingDay"
 
 export const dynamic = "force-dynamic"
 
@@ -21,6 +22,7 @@ export default async function HistoryPage() {
   })
 
   const recaps = buildWeekRecaps(lanes)
+  const thisWeekStart = getWeekStart(getTrainingDay(new Date()))
 
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
@@ -28,7 +30,11 @@ export default async function HistoryPage() {
       <p className="mt-1 text-sm text-zinc-500">Your season, week by week — green for a session, blue for a rest day, purple for a boss-battle week. Only days you showed up are here.</p>
       {recaps.map((recap) => (
         <section key={recap.weekStart.getTime()} className="space-y-3">
-          <h2 className="text-lg font-semibold">Week of {formatWeekLabel(recap.weekStart)}</h2>
+          <h2 className="text-lg font-semibold">
+            {recap.weekStart.getTime() === thisWeekStart.getTime()
+              ? <>This week — {formatWeekLabel(recap.weekStart)}</>
+              : <>Week of {formatWeekLabel(recap.weekStart)}</>}
+          </h2>
           {recap.lanes.map((lane) => (
             <div
               key={lane.id}
