@@ -1,6 +1,7 @@
 import { put, del } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma as db } from "@/lib/db";
+import { requireUserId } from "@/lib/tenancy";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -45,6 +46,7 @@ async function fetchRemoteImage(
 }
 
 export async function uploadPrizePhoto(formData: FormData): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
   const file = formData.get("photo");
   const remoteUrl = formData.get("photoUrl");
 
@@ -69,18 +71,18 @@ export async function uploadPrizePhoto(formData: FormData): Promise<{ ok: true; 
   }
 
   try {
-    // 1. Upload the new image — same path whether it came from disk or a link
-    const pathname = `prize/${Date.now()}-${payload.name}`;
+    // 1. Upload the new image — same path whether it came or a link
+    const pathname = `${userId}/${payload.name}`;
     const blob = await put(pathname, payload.body, { access: "public" });
     const newUrl = blob.url;
 
     // 2. Update the database
     const prize = await db.prize.findUnique({
-      where: { id: "prize" },
+      where: { userId },
     });
 
     await db.prize.update({
-      where: { id: "prize" },
+      where: { userId },
       data: { photoUrl: newUrl },
     });
 
