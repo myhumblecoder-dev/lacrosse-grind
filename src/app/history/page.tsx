@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { computeStreak } from "@/lib/streak"
 import { getTrainingDay } from "@/lib/trainingDay"
+import { getWeekStart } from "@/lib/weekUtils"
 
 export const dynamic = "force-dynamic"
 
@@ -14,10 +15,13 @@ export default async function HistoryPage() {
   const today = getTrainingDay(new Date())
   const start = new Date(today.getTime() - 29 * DAY_MS)
 
-  const lanes = await prisma.lane.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
+  const lanesRaw = await prisma.lane.findMany({
+    orderBy: [
+      { isActive: "desc" },
+      { sortOrder: "asc" },
+    ],
     include: {
+      bossBattles: true,
       checkIns: {
         where: { date: { gte: start } },
         orderBy: { date: "asc" },
@@ -25,12 +29,14 @@ export default async function HistoryPage() {
     },
   })
 
+  const lanes = lanesRaw.filter((lane) => !( !lane.isActive && lane.checkIns.length === 0 ))
+
   const days = Array.from({ length: 30 }, (_, i) => new Date(start.getTime() + i * DAY_MS))
 
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
       <h1 className="text-2xl font-bold">History</h1>
-      <p className="mt-1 text-sm text-zinc-500">Your last 30 days at a glance — green for a session, blue for a rest day. Watch the consistency stack up.</p>
+      <p className="mt-1 text-sm text-zinc-500">Your last 30 days at a glance — green for a session, blue for a rest day, purple for a boss-battle week. Watch the consistency stack up.</p>
       {lanes.map((lane) => {
         const streak = computeStreak(
           lane.checkIns.map((c) => ({ date: c.date, isRest: c.isRest })),
@@ -39,10 +45,22 @@ export default async function HistoryPage() {
         const byDay = new Map(
           lane.checkIns.map((c) => [utcMidnight(c.date).getTime(), c])
         )
+        // A boss battle marks its whole week: session squares turn purple.
+        const battleWeeks = new Set(
+          lane.bossBattles.map((b) => b.weekStarting.getTime())
+        )
         return (
-          <section key={lane.id} className="space\nspace-y-2">
+          <section
+            key={lane.id}
+            className={`space-y-2 ${!lane.isActive ? "opacity-60" : ""}`}
+          >
             <h2 className="text-lg font-semibold">
               {lane.emoji} {lane.name} — {streak}🔥
+              {!lane.isActive && (
+                <span data-testid="retired-tag" className="ml-2 text-xs text-zinc-500">
+                  retired
+                </span>
+              )}
             </h2>
             <div className="grid grid-cols-10 gap-1">
               {days.map((d) => {
@@ -50,7 +68,9 @@ export default async function HistoryPage() {
                 const cls = c
                   ? c.isRest
                     ? "bg-blue-300"
-                    : "bg-green-400"
+                    : battleWeeks.has(getWeekStart(d).getTime())
+                      ? "bg-purple-500"
+                      : "bg-green-400"
                   : "bg-zinc-800"
                 return (
                   <div
