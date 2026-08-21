@@ -10,6 +10,10 @@ datasource db {
 // Lane — a skill domain Eddie trains (e.g. "Stick Skills", "Shooting", "Conditioning")
 model Lane {
   id            String   @id @default(cuid())
+  // Nullable during the two-phase rollout; tightened to required once the
+  // claim script has bound the pre-auth rows to their owner.
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
   name          String
   emoji         String   @default("🥍")
   targetPerWeek Int      @default(5) // days/week target frequency
@@ -17,17 +21,19 @@ model Lane {
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
 
-  checkIns    CheckIn[]
-  bossBattles BossBattle[]
+  checkIns      CheckIn[]
+  bossBattles   BossBattle[]
+  streakFreezes StreakFreeze[]
 
   @@index([isActive])
+  @@index([userId, isActive])
 }
 
 // CheckIn — Eddie's daily self-report for a lane session
 model CheckIn {
   id        String   @id @default(cuid())
   laneId    String
-  lane      Lane     @relation(fields: [laneId], references: [id])
+  lane      Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
   date      DateTime // UTC midnight of the check-in day
   isRest    Boolean  @default(false) // true = rest/sleep entry (counts as a hit)
   note      String? // optional free-text (effort note, not a grade)
@@ -42,7 +48,7 @@ model CheckIn {
 model BossBattle {
   id           String   @id @default(cuid())
   laneId       String
-  lane         Lane     @relation(fields: [laneId], references: [id])
+  lane         Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
   weekStarting DateTime // UTC midnight of the Monday starting the 2-week block
   selfReport   String // Eddie's free-text description of how it went
   coachNote    String? // AI-generated coach note (process-framed, never graded)
@@ -55,12 +61,17 @@ model BossBattle {
 // WeeklyReflection — Eddie's weekly free-text entry + AI summary
 model WeeklyReflection {
   id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
   weekStarting DateTime // UTC midnight of the Monday
-  playerNote   String // Eddie's reflection
+  playerNote   String // the player's reflection
   coachSummary String? // AI-generated summary (effort-framed)
   createdAt    DateTime @default(now())
 
+  // The global unique survives the two-phase window (current code upserts by
+  // it); the tightening story drops it once every row carries a userId.
   @@unique([weekStarting])
+  @@unique([userId, weekStarting])
   @@index([weekStarting])
 }
 
@@ -68,21 +79,78 @@ model WeeklyReflection {
 model StreakFreeze {
   id        String    @id @default(cuid())
   laneId    String
+  lane      Lane      @relation(fields: [laneId], references: [id], onDelete: Cascade)
   usedDate  DateTime? // null = still available
   createdAt DateTime  @default(now())
 
   @@index([laneId])
 }
 
-// Prize — the single thing the player is training for.
-// id is a fixed singleton value and reasons is an ordered scalar list.
+// Prize — the single thing a player is training for. Doubles as the
+// per-user season-state row (seasonStart). The legacy row keeps its literal
+// "prize" id; new rows get cuids and every row binds to a user.
 model Prize {
-  id          String   @id @default("prize")
+  id          String    @id @default(cuid())
+  userId      String?   @unique
+  user        User?     @relation(fields: [userId], references: [id])
   title       String
   description String?
   reasons     String[]
   photoUrl    String?
   seasonStart DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+// ---- Auth.js (next-auth v5 Prisma adapter) --------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  lanes       Lane[]
+  reflections WeeklyReflection[]
+  prize       Prize?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
