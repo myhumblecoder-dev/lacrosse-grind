@@ -2,10 +2,13 @@
 
 import { prisma } from '@/lib/db'
 import { resolveSeasonStart } from '@/lib/seasonAnchor'
+import { requireUserId } from '@/lib/tenancy'
 
 export async function startSeason(): Promise<{ seasonStart: Date }> {
+  const userId = await requireUserId()
+
   const activeLanesCount = await prisma.lane.count({
-    where: { isActive: true },
+    where: { isActive: true, userId },
   })
 
   if (activeLanesCount < 3) {
@@ -13,7 +16,7 @@ export async function startSeason(): Promise<{ seasonStart: Date }> {
   }
 
   const prize = await prisma.prize.findUnique({
-    where: { id: 'prize' },
+    where: { userId },
   })
 
   if (!prize) {
@@ -23,7 +26,7 @@ export async function startSeason(): Promise<{ seasonStart: Date }> {
   const seasonStart = resolveSeasonStart(new Date())
 
   await prisma.prize.update({
-    where: { id: 'prize' },
+    where: { userId },
     data: {
       seasonStart,
     },
