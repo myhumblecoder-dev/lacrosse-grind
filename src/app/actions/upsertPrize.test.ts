@@ -3,6 +3,7 @@ import { prisma as db } from '@/lib/db'
 import type { Prize } from '@prisma/client'
 import { upsertPrize } from './upsertPrize'
 import { revalidatePath } from 'next/cache'
+import { requireUserId } from '@/lib/tenancy'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -17,6 +18,10 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+}))
+
+vi.mock('@/lib/tenancy', () => ({
+  requireUserId: vi.fn(),
 }))
 
 const makePrize = (overrides: Partial<Prize> = {}): Prize =>
@@ -34,6 +39,41 @@ const makePrize = (overrides: Partial<Prize> = {}): Prize =>
 describe('upsertPrize', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+  })
+
+  it('the upsert keys on the signed-in user', async () => {
+    const input = {
+      title: 'Epic Victory',
+      description: 'A great prize',
+      reasons: ['Hard work'],
+      photoUrl: 'https://example.com/photo.png',
+    }
+
+    vi.mocked(db.prize.upsert).mockResolvedValue(makePrize({ id: 'p1' }))
+
+    await upsertPrize(input)
+
+    expect(requireUserId).toHaveBeenCalled()
+    expect(db.prize.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: 'u1' },
+    }))
+  })
+
+  it('the returned id comes from the upserted row', async () => {
+    const input = {
+      title: 'Epic Victory',
+      description: 'A great prize',
+      reasons: ['Hard work'],
+      photoUrl: 'https://example.com/photo.png',
+    }
+
+    const prizeId = 'p123'
+    vi.mocked(db.prize.upsert).mockResolvedValue(makePrize({ id: prizeId }))
+
+    const res = await upsertPrize(input)
+
+    expect(res).toEqual({ ok: true, id: prizeId })
   })
 
   it('valid input upserts the singleton row', async () => {
@@ -44,22 +84,22 @@ describe('upsertPrize', () => {
       photoUrl: 'https://example.com/photo.png',
     }
 
-    vi.mocked(db.prize.upsert).mockResolvedValue(makePrize({ title: 'Epic Victory' }))
+    vi.mocked(db.prize.upsert).mockResolvedValue(makePrize({ id: 'p123', title: 'Epic Victory' }))
 
     const res = await upsertPrize(input)
 
-    expect(res).toEqual({ ok: true, id: 'prize' })
-    expect(db.prize.upsert).toHaveBeenCalledWith({
-      where: { id: 'prize' },
+    expect(res).toEqual({ ok: true, id: 'p123' })
+    expect(db.prize.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: 'u1' },
       update: expect.objectContaining({
         title: 'Epic Victory',
         photoUrl: 'https://example.com/photo.png',
       }),
       create: expect.objectContaining({
-        id: 'prize',
+        userId: 'u1',
         title: 'Epic Victory',
       }),
-    })
+    }))
     expect(revalidatePath).toHaveBeenCalledWith('/prize')
   })
 
@@ -83,4 +123,4 @@ describe('upsertPrize', () => {
     expect(res).toEqual({ ok: false, error: 'validation' })
     expect(db.prize.upsert).not.toHaveBeenCalled()
   })
-}) 
+})
