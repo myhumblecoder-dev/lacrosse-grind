@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
+import { getWeekStart } from '@/lib/weekUtils'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -29,6 +30,7 @@ describe('Page', () => {
         emoji: '🚀',
         isActive: true,
         sortOrder: 1,
+        bossBattles: [],
         checkIns: [{ date: today, isRest: false } as any],
       },
       {
@@ -37,6 +39,7 @@ describe('Page', () => {
         emoji: '💀',
         isActive: false,
         sortOrder: 2,
+        bossBattles: [],
         checkIns: [{ date: today, isRest: false } as any],
       },
     ] as any
@@ -59,6 +62,7 @@ describe('Page', () => {
         emoji: '🚀',
         isActive: true,
         sortOrder: 1,
+        bossBattles: [],
         checkIns: [{ date: new Date(), isRest: false } as any],
       },
     ] as any
@@ -79,6 +83,7 @@ describe('Page', () => {
         emoji: '🚀',
         isActive: true,
         sortOrder: 1,
+        bossBattles: [],
         checkIns: [{ date: new Date(), isRest: false } as any],
       },
       {
@@ -87,6 +92,7 @@ describe('Page', () => {
         emoji: '💀',
         isActive: false,
         sortOrder: 2,
+        bossBattles: [],
         checkIns: [],
       },
     ] as any
@@ -96,5 +102,56 @@ describe('Page', () => {
     render(PageComponent)
 
     expect(screen.queryByText(/Empty Retired Lane/)).not.toBeInTheDocument()
+  })
+
+  it('a session inside a battle week is purple', async () => {
+    const { prisma } = await import('@/lib/db')
+    const day = new Date('2026-08-18T00:00:00.000Z')
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, sortOrder: 0,
+        bossBattles: [{ weekStarting: getWeekStart(day) }],
+        checkIns: [{ date: day, isRest: false }],
+      },
+    ] as never)
+
+    const { container } = render(await Page())
+
+    expect(container.querySelectorAll('.bg-purple-500')).toHaveLength(1)
+    expect(container.querySelectorAll('.bg-green-400')).toHaveLength(0)
+  })
+
+  it('a rest day inside a battle week stays blue', async () => {
+    const { prisma } = await import('@/lib/db')
+    const day = new Date('2026-08-18T00:00:00.000Z')
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, sortOrder: 0,
+        bossBattles: [{ weekStarting: getWeekStart(day) }],
+        checkIns: [{ date: day, isRest: true }],
+      },
+    ] as never)
+
+    const { container } = render(await Page())
+
+    expect(container.querySelectorAll('.bg-blue-300')).toHaveLength(1)
+    expect(container.querySelectorAll('.bg-purple-500')).toHaveLength(0)
+  })
+
+  it('no battles means no purple', async () => {
+    const { prisma } = await import('@/lib/db')
+    const day = new Date('2026-08-18T00:00:00.000Z')
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, sortOrder: 0,
+        bossBattles: [],
+        checkIns: [{ date: day, isRest: false }],
+      },
+    ] as never)
+
+    const { container } = render(await Page())
+
+    expect(container.querySelectorAll('.bg-purple-500')).toHaveLength(0)
+    expect(container.querySelectorAll('.bg-green-400')).toHaveLength(1)
   })
 })

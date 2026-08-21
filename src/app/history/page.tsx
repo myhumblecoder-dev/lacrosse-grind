@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { computeStreak } from "@/lib/streak"
 import { getTrainingDay } from "@/lib/trainingDay"
+import { getWeekStart } from "@/lib/weekUtils"
 
 export const dynamic = "force-dynamic"
 
@@ -20,6 +21,7 @@ export default async function HistoryPage() {
       { sortOrder: "asc" },
     ],
     include: {
+      bossBattles: true,
       checkIns: {
         where: { date: { gte: start } },
         orderBy: { date: "asc" },
@@ -34,7 +36,7 @@ export default async function HistoryPage() {
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
       <h1 className="text-2xl font-bold">History</h1>
-      <p className="mt-1 text-sm text-zinc-500">Your last 30 days at a glance — green for a session, blue for a rest day. Watch the consistency stack up.</p>
+      <p className="mt-1 text-sm text-zinc-500">Your last 30 days at a glance — green for a session, blue for a rest day, purple for a boss-battle week. Watch the consistency stack up.</p>
       {lanes.map((lane) => {
         const streak = computeStreak(
           lane.checkIns.map((c) => ({ date: c.date, isRest: c.isRest })),
@@ -42,6 +44,10 @@ export default async function HistoryPage() {
         )
         const byDay = new Map(
           lane.checkIns.map((c) => [utcMidnight(c.date).getTime(), c])
+        )
+        // A boss battle marks its whole week: session squares turn purple.
+        const battleWeeks = new Set(
+          lane.bossBattles.map((b) => b.weekStarting.getTime())
         )
         return (
           <section
@@ -62,7 +68,9 @@ export default async function HistoryPage() {
                 const cls = c
                   ? c.isRest
                     ? "bg-blue-300"
-                    : "bg-green-400"
+                    : battleWeeks.has(getWeekStart(d).getTime())
+                      ? "bg-purple-500"
+                      : "bg-green-400"
                   : "bg-zinc-800"
                 return (
                   <div
