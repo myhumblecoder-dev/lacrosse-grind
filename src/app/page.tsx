@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db"
+import { requireUserId } from "@/lib/tenancy"
 import { computeStreak } from "@/lib/streak"
 import { getWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
@@ -15,19 +16,20 @@ import { getSeasonReadiness } from "@/lib/seasonReadiness"
 export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
+  const userId = await requireUserId()
   const today = getTrainingDay(new Date())
   const weekStart = getWeekStart(today)
 
   const [prize, activeLaneCount] = await Promise.all([
-    prisma.prize.findUnique({ where: { id: 'prize' } }),
-    prisma.lane.count({ where: { isActive: true } })
+    prisma.prize.findUnique({ where: { userId } }),
+    prisma.lane.count({ where: { isActive: true, userId } })
   ])
 
   const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize))
   const hasStarted = Boolean(prize?.seasonStart)
 
   const lanes = await prisma.lane.findMany({
-    where: { isActive: true },
+    where: { isActive: true, userId },
     orderBy: { sortOrder: "asc" },
     include: {
       checkIns: { where: { date: { gte: weekStart } }, orderBy: { date: "asc" } },

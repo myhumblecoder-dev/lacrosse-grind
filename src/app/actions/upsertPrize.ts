@@ -1,8 +1,10 @@
 import { prisma as db } from "@/lib/db";
 import { prizeSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
+import { requireUserId } from "@/lib/tenancy";
 
 export async function upsertPrize(input: unknown): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
   const parsed = prizeSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -18,7 +20,7 @@ export async function upsertPrize(input: unknown): Promise<{ ok: true; id: strin
 
   if (!("photoUrl" in inputAsObj)) {
     const existing = await db.prize.findUnique({
-      where: { id: "prize" },
+      where: { userId },
       select: { photoUrl: true },
     });
     photoUrl = existing?.photoUrl ?? null;
@@ -29,16 +31,16 @@ export async function upsertPrize(input: unknown): Promise<{ ok: true; id: strin
     photoUrl: photoUrl ?? null,
   };
 
-  await db.prize.upsert({
-    where: { id: "prize" },
+  const prize = await db.prize.upsert({
+    where: { userId },
     update: updateData,
     create: {
-      id: "prize",
       ...updateData,
+      userId,
     },
   });
 
   revalidatePath("/prize");
 
-  return { ok: true, id: "prize" };
+  return { ok: true, id: prize.id };
 }
