@@ -1,4 +1,5 @@
 import { prisma as db } from "@/lib/db"
+import { requireUserId } from "@/lib/tenancy"
 import { getWeekStart, formatWeekLabel, getLastCompletedWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
 import { createBossBattle } from "@/app/actions/createBossBattle"
@@ -10,12 +11,13 @@ import { validateSwap } from "@/lib/validateSwap"
 export const dynamic = "force-dynamic"
 
 export default async function BossBattlesPage() {
+  const userId = await requireUserId()
   const trainingDay = getTrainingDay(new Date())
   const thisWeekStart = getWeekStart(trainingDay)
   const lastWeekStart = getLastCompletedWeekStart(trainingDay)
 
   const lanes = await db.lane.findMany({
-    where: { isActive: true },
+    where: { isActive: true, userId },
     orderBy: { sortOrder: "asc" },
     include: {
       checkIns: {
@@ -33,7 +35,7 @@ export default async function BossBattlesPage() {
 
   // What a lane change would cost right now, decided once for the page.
   const inactiveLanes = await db.lane.findMany({
-    where: { isActive: false },
+    where: { isActive: false, userId },
     select: { id: true, name: true, emoji: true },
   })
   const swapState = validateSwap(lanes.length)

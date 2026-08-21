@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
+import { requireUserId } from '@/lib/tenancy'
 import { resetSeason } from './resetSeason'
 
 vi.mock('@/lib/db', () => ({
@@ -13,27 +14,42 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
+vi.mock('@/lib/tenancy', () => ({
+  requireUserId: vi.fn()
+}))
+
 describe('resetSeason', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue('u1')
   })
 
-  it('it clears seasonStart on the prize row', async () => {
-    vi.mocked(prisma.prize.update).mockResolvedValue(
-      { id: 'prize', title: 'Test', description: '', reasons: [], photoUrl: null, seasonStart: null, createdAt: new Date(0), updatedAt: new Date(0) }
-    )
+  it('the reset is scoped to the owner', async () => {
+    vi.mocked(prisma.prize.updateMany).mockResolvedValue({ count: 1 })
 
     await resetSeason()
 
-    expect(prisma.prize.update).toHaveBeenCalledWith({
-      where: { id: 'prize' },
+    expect(requireUserId).toHaveBeenCalled()
+    expect(prisma.prize.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+      data: { seasonStart: null }
+    })
+  })
+
+  it('it clears seasonStart on the prize row', async () => {
+    vi.mocked(prisma.prize.updateMany).mockResolvedValue({ count: 1 })
+
+    await resetSeason()
+
+    expect(prisma.prize.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
       data: { seasonStart: null }
     })
   })
 
   it('a missing prize row surfaces the Prisma error unchanged', async () => {
     const error = new Error('Record to update not found.')
-    vi.mocked(prisma.prize.update).mockRejectedValue(error)
+    vi.mocked(prisma.prize.updateMany).mockRejectedValue(error)
 
     await expect(resetSeason()).rejects.toThrow('Record to update not found.')
   })

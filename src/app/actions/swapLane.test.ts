@@ -3,20 +3,28 @@ import { swapLane } from './swapLane'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    lane: { count: vi.fn(), update: vi.fn() },
+    lane: {
+      count: vi.fn(),
+      update: vi.fn(),
+      findFirst: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
 
 import { prisma } from '@/lib/db'
+import { requireUserId } from '@/lib/tenancy'
 
 describe('swapLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(prisma.lane.update).mockResolvedValue({} as never)
-    vi.mocked(prisma.$transaction).mockResolvedValue([] as never)
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(prisma.lane.update).mockResolvedValue({} as any)
+    vi.mocked(prisma.$transaction).mockResolvedValue([] as any)
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'any' } as any)
   })
 
   it('rejects input that is not a valid swap', async () => {
@@ -62,7 +70,6 @@ describe('swapLane', () => {
     const result = await swapLane({ outLaneId: 'lane-2', inLaneId: 'lane-9' })
 
     expect(result).toEqual({ ok: true })
-    // One transaction, so Eddie is never briefly left with two lanes.
     expect(prisma.$transaction).toHaveBeenCalledTimes(1)
     expect(prisma.lane.update).toHaveBeenCalledWith({
       where: { id: 'lane-2' },
@@ -71,6 +78,43 @@ describe('swapLane', () => {
     expect(prisma.lane.update).toHaveBeenCalledWith({
       where: { id: 'lane-9' },
       data: { isActive: true },
+    })
+  })
+
+  it('a foreign outLaneId returns not-found', async () => {
+    vi.mocked(prisma.lane.count).mockResolvedValue(4)
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue(null)
+
+    const result = await swapLane({ outLaneId: 'foreign-id' })
+
+    expect(result).toEqual({ ok: false, error: 'not-found' })
+    expect(prisma.lane.findFirst).toHaveBeenCalledWith({
+      where: { id: 'foreign-id', userId: 'u1' },
+    })
+  })
+
+  it('a foreign inLaneId returns not-found', async () => {
+    vi.mocked(prisma.lane.count).mockResolvedValue(4)
+    // outLane is found, but inLane is not
+    vi.mocked(prisma.lane.findFirst)
+      .mockResolvedValueOnce({ id: 'valid-out' } as any)
+      .mockResolvedValueOnce(null)
+
+    const result = await swapLane({ outLaneId: 'valid-out', inLaneId: 'foreign-in' })
+
+    expect(result).toEqual({ ok: false, error: 'not-found' })
+    expect(prisma.lane.findFirst).toHaveBeenCalledWith({
+      where: { id: 'foreign-in', userId: 'u1' },
+    })
+  })
+
+  it('the lane count is scoped to the owner', async () => {
+    vi.mocked(prisma.lane.count).mockResolvedValue(4)
+
+    await swapLane({ outLaneId: 'lane-2' })
+
+    expect(prisma.lane.count).toHaveBeenCalledWith({
+      where: { isActive: true, userId: 'u1' },
     })
   })
 })

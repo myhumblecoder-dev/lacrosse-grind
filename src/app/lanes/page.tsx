@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db"
+import { requireUserId } from "@/lib/tenancy"
 import { createLane } from "@/app/actions/createLane"
 import { updateLane } from "@/app/actions/updateLane"
 import { setLaneActive } from "@/app/actions/setLaneActive"
@@ -11,7 +12,9 @@ import LaneForm from "@/components/LaneForm"
 export const dynamic = "force-dynamic"
 
 export default async function LanesPage() {
+  const userId = await requireUserId()
   const lanes = await prisma.lane.findMany({
+    where: { userId },
     orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }],
   })
 

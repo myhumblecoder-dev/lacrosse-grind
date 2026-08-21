@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db"
+import { requireUserId } from "@/lib/tenancy"
 import { upsertPrize } from "@/app/actions/upsertPrize"
 import { deletePrize } from "@/app/actions/deletePrize"
 import { uploadPrizePhoto } from "@/app/actions/uploadPrizePhoto"
@@ -21,7 +22,8 @@ function seasonEnd(start: Date): Date {
 }
 
 export default async function PrizePage() {
-  const prize = await prisma.prize.findUnique({ where: { id: "prize" } })
+  const userId = await requireUserId()
+  const prize = await prisma.prize.findUnique({ where: { userId } })
 
   // Before Eddie presses START there is no window to filter on — the season
   // hasn't begun, so every check-in is fair game and the grid renders as
@@ -44,6 +46,7 @@ export default async function PrizePage() {
   // from weeks he already qualified, so swapping a lane would silently undo
   // his season. TODAY is the page that cares about what is active now.
   const lanes = await prisma.lane.findMany({
+    where: { userId },
     select: {
       targetPerWeek: true,
       checkIns: {

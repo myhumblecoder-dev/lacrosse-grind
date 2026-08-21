@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { getWeekStart, formatWeekLabel } from '@/lib/weekUtils'
 import { getTrainingDay } from '@/lib/trainingDay'
+import { requireUserId } from '@/lib/tenancy'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -15,6 +16,8 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+
 vi.mock('next/font/google', () => new Proxy({}, {
   get: () => () => ({ variable: 'mock-font-variable', className: 'mock-int' }),
 }))
@@ -25,6 +28,26 @@ describe('Page', () => {
     const { prisma } = await import('@/lib/db')
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+  })
+
+  it('the history queries are scoped to the signed-in user', async () => {
+    const { prisma } = await import('@/lib/db')
+    const userId = 'u1'
+    vi.mocked(requireUserId).mockResolvedValue(userId)
+    
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'prize', userId } as any)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    await Page()
+
+    expect(requireUserId).toHaveBeenCalled()
+    expect(prisma.prize.findUnique).toHaveBeenCalledWith({
+      where: { userId }
+    })
+    expect(prisma.lane.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId })
+    }))
   })
 
   it('a retired lane with history renders muted with the tag', async () => {
@@ -125,7 +148,7 @@ describe('Page', () => {
         bossBattles: [{ weekStarting: getWeekStart(day) }],
         checkIns: [{ date: day, isRest: false }],
       },
-    ] as never)
+    ] as any)
 
     const { container } = render(await Page())
 
@@ -142,7 +165,7 @@ describe('Page', () => {
         bossBattles: [{ weekStarting: getWeekStart(day) }],
         checkIns: [{ date: day, isRest: true }],
       },
-    ] as never)
+    ] as any)
 
     const { container } = render(await Page())
 
@@ -159,7 +182,7 @@ describe('Page', () => {
         bossBattles: [],
         checkIns: [{ date: day, isRest: false }],
       },
-    ] as never)
+    ] as any)
 
     const { container } = render(await Page())
 
@@ -169,8 +192,6 @@ describe('Page', () => {
 
   it('weeks render newest first with formatted headers', async () => {
     const { prisma } = await import('@/lib/db')
-    // anchored to the real current week so the newest section is always
-    // the running one ("This week") and the older one a plain past week
     const late = getWeekStart(getTrainingDay(new Date()))
     const early = new Date(late.getTime() - 7 * 24 * 60 * 60 * 1000)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([
@@ -182,7 +203,7 @@ describe('Page', () => {
           { date: late, isRest: false },
         ],
       },
-    ] as never)
+    ] as any)
 
     render(await Page())
 
@@ -200,12 +221,11 @@ describe('Page', () => {
         bossBattles: [],
         checkIns: [{ date: new Date('2026-08-18T00:00:00.000Z'), isRest: false }],
       },
-    ] as never)
+    ] as any)
 
     const { container } = render(await Page())
 
     expect(container.querySelectorAll('.bg-zinc-800')).toHaveLength(0)
-    // exactly one square: the single checked day
     expect(container.querySelectorAll('.h-6.w-6')).toHaveLength(1)
   })
 
@@ -222,7 +242,7 @@ describe('Page', () => {
           { date: plainDay, isRest: false },
         ],
       },
-    ] as never)
+    ] as any)
 
     render(await Page())
 
@@ -238,7 +258,7 @@ describe('Page', () => {
         bossBattles: [],
         checkIns: [{ date: thisWeekStart, isRest: false }],
       },
-    ] as never)
+    ] as any)
 
     render(await Page())
 
@@ -257,7 +277,7 @@ describe('Page', () => {
         bossBattles: [],
         checkIns: [{ date: pastDay, isRest: false }],
       },
-    ] as never)
+    ] as any)
 
     render(await Page())
 

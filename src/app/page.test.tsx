@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { LANES_REQUIRED } from '@/lib/season'
 import { prisma } from '@/lib/db'
+import { requireUserId } from '@/lib/tenancy'
 
 // Mocking the components as requested by the AC
 vi.mock('@/components/SeasonStartButton', () => ({
@@ -36,6 +37,10 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
+vi.mock('@/lib/tenancy', () => ({
+  requireUserId: vi.fn(),
+}))
+
 // Mocking next/font/google's loader only exists inside the Next build; under vitest
 // `Geist(...)` is not a function and the suite dies at module load.
 vi.mock('next/font/google', () => new Proxy({}, {
@@ -49,10 +54,35 @@ vi.mock('next/font/google', () => new Proxy({}, {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue('u1')
     // Default mock for lanes to prevent crashes in the loop
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
     vi.mocked(prisma.lane.count).mockResolvedValue(0)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
+  })
+
+  it('every query is scoped to the signed-in user', async () => {
+    const userId = 'u1'
+    vi.mocked(requireUserId).mockResolvedValue(userId)
+    
+    // Setup mocks to verify the 'where' clause
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.lane.count).mockResolvedValue(0)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    await Page()
+
+    expect(prisma.prize.findUnique).toHaveBeenCalledWith({
+      where: { userId }
+    })
+    expect(prisma.lane.count).toHaveBeenCalledWith({
+      where: { isActive: true, userId: userId }
+    })
+    expect(prisma.lane.findMany).toHaveBeenCalledWith({
+      where: { isActive: true, userId: userId },
+      orderBy: { sortOrder: "asc" },
+      include: expect.anything()
+    })
   })
 
   it('a not-ready season renders the setup panel', async () => {

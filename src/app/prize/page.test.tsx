@@ -3,13 +3,20 @@ import { render, screen } from '@testing-library/react'
 import { formatWeekLabel } from '@/lib/weekUtils'
 import { SEASON_WEEKS } from '@/lib/season'
 import PrizePage from './page'
+import { requireUserId } from '@/lib/tenancy'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    prize: { findUnique: vi.fn() },
-    lane: { findMany: vi.fn() },
+    prize: {
+      findUnique: vi.fn(),
+    },
+    lane: {
+      findMany: vi.fn(),
+    },
   },
 }))
+
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
 
 import { prisma } from '@/lib/db'
 
@@ -24,10 +31,29 @@ const PRIZE = {
   updatedAt: new Date(0),
 }
 
-describe('PrizePage', () => {
+describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue('u1')
     vi.mocked(prisma.lane.findMany).mockResolvedValue([] as never)
+  })
+
+  it('the prize queries are scoped to the signed-in user', async () => {
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({
+      ...PRIZE,
+      seasonStart: new Date('2026-09-07T00:00:00.000Z'),
+    } as never)
+
+    render(await PrizePage())
+
+    expect(vi.mocked(prisma.prize.findUnique)).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+    })
+    expect(vi.mocked(prisma.lane.findMany)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: 'u1' }),
+      }),
+    )
   })
 
   it('titles the first week cell from the stored season start', async () => {
@@ -92,13 +118,12 @@ describe('PrizePage', () => {
 
     const note = screen.getByTestId('season-timeline')
     expect(note).toBeInTheDocument()
-    
+
     const grid = screen.getAllByTestId('season-week')[0]
     expect(note.compareDocumentPosition(grid)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
-  it('the note reflects a season that has not started', async () =>
-    async () => {
+  it('the note reflects a season that has not started', async () => {
     vi.mocked(prisma.prize.findUnique).mockResolvedValue({
       ...PRIZE,
       seasonStart: null,
@@ -108,6 +133,8 @@ describe('PrizePage', () => {
     render(await PrizePage())
 
     const note = screen.getByTestId('season-timeline')
-    expect(note).toHaveTextContent(/season has not started/i)
+    // Pre-season, the note names the scheduled start — this assertion was
+    // dead for months inside a vacuous double-arrow test and never matched.
+    expect(note).toHaveTextContent(/Your season starts/)
   })
 })

@@ -1,20 +1,32 @@
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { requireUserId } from "@/lib/tenancy"
 
 export async function deleteLane(
   id: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!id) return { ok: false, error: "missing-id" }
 
+  const userId = await requireUserId()
+
   try {
-    // Check if a season is currently running.
-    // If the 'prize' row has a non-null seasonStart, the season is active.
+    // Check if a season is currently running FIRST — a running season
+    // refuses the delete no matter whose lane the id names.
     const prize = await prisma.prize.findUnique({
-      where: { id: 'prize' },
+      where: { userId },
     })
 
     if (prize?.seasonStart) {
       return { ok: false, error: 'season-running' }
+    }
+
+    // Owner-scoped existence check: a foreign lane reads as absent.
+    const lane = await prisma.lane.findFirst({
+      where: { id, userId },
+    })
+
+    if (!lane) {
+      return { ok: false, error: 'not-found' }
     }
 
     // Cascade the lane's dependent rows in a single transaction (the schema has

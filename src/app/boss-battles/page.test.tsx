@@ -4,6 +4,7 @@ import Page from './page'
 import { prisma as db } from '@/lib/db'
 import { getLastCompletedWeekStart, getWeekStart, formatWeekLabel } from '@/lib/weekUtils'
 import { getTrainingDay } from '@/lib/trainingDay'
+import { requireUserId } from '@/lib/tenancy'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -19,6 +20,10 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
+vi.mock('@/lib/tenancy', () => ({ 
+  requireUserId: vi.fn() 
+}))
+
 // next/font's loader only exists inside the Next build; under vitest
 // `Geist(...)` is not a function and the suite dies at module load.
 vi.mock('next/font/google', () => new Proxy({}, {
@@ -28,10 +33,44 @@ vi.mock('next/font/google', () => new Proxy({}, {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue('u1')
     // Persistent default: any call not overridden by a test's Once
     // (i.e. the second, inactive-lanes call) resolves empty. A Once here
     // would be consumed FIFO by the FIRST (active) call instead.
     vi.mocked(db.lane.findMany).mockResolvedValue([])
+  })
+
+  it('both lane queries are scoped to the signed-in user', async () => {
+    const userId = 'u1'
+    vi.mocked(requireUserId).mockResolvedValue(userId)
+
+    const lane = {
+      id: 'l1',
+      name: 'Strength',
+      emoji: '💪',
+      targetPerWeek: 2,
+      isActive: true,
+      sortOrder: 1,
+      checkIns: [],
+      bossBattles: [],
+    } as any
+
+    // First call: active lanes
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([
+      { ...lane, userId }
+    ])
+    // Second call: inactive lanes
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([])
+
+    const PageComponent = await Page()
+    render(PageComponent)
+
+    expect(db.lane.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId: userId, isActive: true })
+    }))
+    expect(db.lane.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId: userId, isActive: false })
+    }))
   })
 
   it('an unfought last-week victory stays fightable', async () => {
@@ -87,8 +126,7 @@ describe('Page', () => {
     render(PageComponent)
 
     expect(screen.queryByText(/Last week's unfought boss/)).not.toBeInTheDocument()
-  }
-  )
+  })
 
   it('a missed last week stays quiet', async () => {
     const trainingDay = getTrainingDay(new Date())
