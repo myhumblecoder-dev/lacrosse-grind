@@ -1,4 +1,5 @@
 import { prisma as db } from "@/lib/db"
+import { requireUserId } from "@/lib/tenancy"
 import { getWeekStart, formatWeekLabel } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
 import { createReflection } from "@/app/actions/createReflection"
@@ -10,9 +11,11 @@ import ReflectionList from "@/components/ReflectionList"
 export const dynamic = "force-dynamic"
 
 export default async function ReflectionPage() {
+  const userId = await requireUserId()
   const weekStart = getWeekStart(getTrainingDay(new Date()))
 
   const allReflections = await db.weeklyReflection.findMany({
+    where: { userId },
     orderBy: { weekStarting: "desc" },
   })
 
