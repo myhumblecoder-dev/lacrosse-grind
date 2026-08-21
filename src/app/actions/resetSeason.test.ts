@@ -20,7 +20,7 @@ describe('resetSeason', () => {
 
   it('it clears seasonStart on the prize row', async () => {
     vi.mocked(prisma.prize.update).mockResolvedValue(
-      { id: 'prize', title: 'Test', description: '', reasons: [], photoUrl: null, seasonStart: null, createdAt: new Date(0), updatedAt: new Date(0) }
+      { id: 'prize', userId: null, title: 'Test', description: '', reasons: [], photoUrl: null, seasonStart: null, createdAt: new Date(0), updatedAt: new Date(0) }
     )
 
     await resetSeason()
