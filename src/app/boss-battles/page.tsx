@@ -1,5 +1,5 @@
 import { prisma as db } from "@/lib/db"
-import { getLastCompletedWeekStart, getWeekStart, formatWeekLabel } from "@/lib/weekUtils"
+import { getWeekStart, formatWeekLabel } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
 import { createBossBattle } from "@/app/actions/createBossBattle"
 import BossBattleForm from "@/components/BossBattleForm"
@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic"
 
 export default async function BossBattlesPage() {
   const trainingDay = getTrainingDay(new Date())
-  const weekStart = getLastCompletedWeekStart(trainingDay)
   const thisWeekStart = getWeekStart(trainingDay)
 
   const lanes = await db.lane.findMany({
@@ -20,11 +19,11 @@ export default async function BossBattlesPage() {
     include: {
       checkIns: {
         where: {
-          date: { gte: weekStart, lt: thisWeekStart },
+          date: { gte: thisWeekStart },
         },
       },
       bossBattles: {
-        where: { weekStarting: weekStart },
+        where: { weekStarting: thisWeekStart },
       },
     },
   })
@@ -39,7 +38,7 @@ export default async function BossBattlesPage() {
   return (
     <main className="max-w-2xl mx-auto space-y-8 p-6">
       <h1 className="text-2xl font-bold">
-        Boss Battles — week of {formatWeekLabel(weekStart)}
+        Boss Battles — week of {formatWeekLabel(thisWeekStart)}
       </h1>
       <p className="mt-1 text-sm text-zinc-500">
         Finish a lane's weekly target and you unlock its boss battle — describe how the week went. The coach note is about your process, never a grade.
@@ -73,7 +72,7 @@ export default async function BossBattlesPage() {
                 <BossBattleForm
                   laneId={lane.id}
                   laneName={lane.name}
-                  weekStarting={weekStart}
+                  weekStarting={thisWeekStart}
                   existingReport={existing?.selfReport}
                   existingCoachNote={existing?.coachNote ?? undefined}
                   createBossBattle={async (data) => {
@@ -95,7 +94,9 @@ export default async function BossBattlesPage() {
                 )}
               </div>
             ) : (
-              <p className="text-zinc-500 text-sm">No battle this week — target missed.</p>
+              <p className="text-zinc-500 text-sm" data-testid="battle-locked">
+                Hit your target to unlock this week's boss.
+              </p>
             )}
           </section>
         )
