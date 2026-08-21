@@ -8,7 +8,6 @@ import {
   LanesIcon,
   BattlesIcon,
   PrizeIcon,
-  ReflectIcon,
   HistoryIcon,
   MenuIcon
 } from '@/components/icons'
@@ -24,7 +23,6 @@ const NAV: NavItem[] = [
   { href: '/lanes', label: 'Lanes', icon: LanesIcon },
   { href: '/boss-battles', label: 'Battles', icon: BattlesIcon },
   { href: '/prize', label: 'Prize', icon: PrizeIcon },
-  { href: '/reflection', label: 'Reflect', icon: ReflectIcon },
   { href: '/history', label: 'History', icon: HistoryIcon },
 ]
 

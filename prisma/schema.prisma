@@ -50,28 +50,17 @@ model BossBattle {
   laneId       String
   lane         Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
   weekStarting DateTime // UTC midnight of the Monday starting the 2-week block
-  selfReport   String // Eddie's free-text description of how it went
-  coachNote    String? // AI-generated coach note (process-framed, never graded)
+  // The boss IS a generated real-world challenge derived from the lane
+  // ("3 sets of 5 pushups" spawns "3 sets of 5 burpees"). Defeated when
+  // completedAt is set — by doing it, not describing it.
+  challenge    String?
+  completedAt  DateTime?
+  rerolled     Boolean  @default(false) // one re-roll per battle
+  selfReport   String? // legacy free-text (pre-challenge battles)
+  coachNote    String? // AI hype note, written at victory
   createdAt    DateTime @default(now())
 
   @@unique([laneId, weekStarting])
-  @@index([weekStarting])
-}
-
-// WeeklyReflection — Eddie's weekly free-text entry + AI summary
-model WeeklyReflection {
-  id           String   @id @default(cuid())
-  userId       String?
-  user         User?    @relation(fields: [userId], references: [id])
-  weekStarting DateTime // UTC midnight of the Monday
-  playerNote   String // the player's reflection
-  coachSummary String? // AI-generated summary (effort-framed)
-  createdAt    DateTime @default(now())
-
-  // The global unique survives the two-phase window (current code upserts by
-  // it); the tightening story drops it once every row carries a userId.
-  @@unique([weekStarting])
-  @@unique([userId, weekStarting])
   @@index([weekStarting])
 }
 
@@ -115,7 +104,6 @@ model User {
   accounts    Account[]
   sessions    Session[]
   lanes       Lane[]
-  reflections WeeklyReflection[]
   prize       Prize?
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { swapSchema, laneSchema, checkInSchema, bossBattleSchema, reflectionSchema, prizeSchema } from './validation'
+import { swapSchema, laneSchema, checkInSchema, bossBattleSchema, prizeSchema } from './validation'
 
 describe('validation', () => {
   it('laneSchema valid input passes', () => {
@@ -68,15 +68,6 @@ describe('validation', () => {
     }
     const resultParse = bossBattleSchema.safeParse(invalidData)
     expect(resultParse.success).toBe(false)
-  })
-
-  it('reflectionSchema too long playerNote fails', () => {
-    const invalidData = {
-      weekStarting: new Date(Date.UTC(2023, 10, 1)),
-      playerNote: 'A'.repeat(501)
-    }
-    const result = reflectionSchema.safeParse(invalidData)
-    expect(result.success).toBe(false)
   })
 
   it('prize accepts a full valid record', () => {
