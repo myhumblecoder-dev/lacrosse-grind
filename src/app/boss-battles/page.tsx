@@ -2,13 +2,47 @@ import { prisma as db } from "@/lib/db"
 import { requireUserId } from "@/lib/tenancy"
 import { getWeekStart, formatWeekLabel, getLastCompletedWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
-import { createBossBattle } from "@/app/actions/createBossBattle"
-import BossBattleForm from "@/components/BossBattleForm"
+import { generateBossChallenge } from "@/app/actions/generateBossChallenge"
+import { rerollBossChallenge } from "@/app/actions/rerollBossChallenge"
+import { completeBossBattle } from "@/app/actions/completeBossBattle"
+import BossChallengeCard from "@/components/BossChallengeCard"
 import BossBattleSwapTrigger from "@/components/BossBattleSwapTrigger"
 import { swapLane } from "@/app/actions/swapLane"
 import { validateSwap } from "@/lib/validateSwap"
 
 export const dynamic = "force-dynamic"
+
+type Battle = {
+  id: string
+  weekStarting: Date
+  challenge: string | null
+  rerolled: boolean
+  completedAt: Date | null
+  coachNote: string | null
+}
+
+function challengeCard(laneId: string, weekStarting: Date, battle: Battle | undefined) {
+  return (
+    <BossChallengeCard
+      challenge={battle?.challenge ?? null}
+      rerolled={battle?.rerolled ?? false}
+      completedAt={battle?.completedAt ?? null}
+      coachNote={battle?.coachNote ?? null}
+      onFace={async () => {
+        "use server"
+        await generateBossChallenge(laneId, weekStarting)
+      }}
+      onReroll={async () => {
+        "use server"
+        if (battle) await rerollBossChallenge(battle.id)
+      }}
+      onComplete={async () => {
+        "use server"
+        if (battle) await completeBossBattle(battle.id)
+      }}
+    />
+  )
+}
 
 export default async function BossBattlesPage() {
   const userId = await requireUserId()
@@ -40,13 +74,27 @@ export default async function BossBattlesPage() {
   })
   const swapState = validateSwap(lanes.length)
 
+  // A last-week boss stays fightable for one grace week when its target was
+  // hit but the boss was never DEFEATED.
+  const graceLanes = lanes.filter((lane) => {
+    const lastWeekHits = lane.checkIns.filter(
+      (c) => c.date >= lastWeekStart && c.date < thisWeekStart
+    ).length
+    const lastWeekBattle = lane.bossBattles.find(
+      (b) => b.weekStarting.getTime() === lastWeekStart.getTime()
+    )
+    return lastWeekHits >= lane.targetPerWeek && !lastWeekBattle?.completedAt
+  })
+
   return (
     <main className="max-w-2xl mx-auto space-y-8 p-6">
       <h1 className="text-2xl font-bold">
         Boss Battles — week of {formatWeekLabel(thisWeekStart)}
       </h1>
       <p className="mt-1 text-sm text-zinc-500">
-        Finish a lane's weekly target and you unlock its boss battle — describe how the week went. The coach note is about your process, never a grade.
+        Finish a lane's weekly target to wake its boss — the coach conjures a
+        challenge and you beat it in the real world. Bosses fall to showing up,
+        never to stats.
       </p>
 
       {lanes.length === 0 && (
@@ -55,10 +103,10 @@ export default async function BossBattlesPage() {
 
       {lanes.map((lane) => {
         const currentHits = lane.checkIns.filter((c) => c.date >= thisWeekStart).length
-        const lastWeekHits = lane.checkIns.filter((c) => c.date >= lastWeekStart && c.date < thisWeekStart).length
         const hitTarget = currentHits >= lane.targetPerWeek
-        const existing = lane.bossBattles.find((b) => b.weekStarting.getTime() === thisWeekStart.getTime())
-        const lastWeekBattle = lane.bossBattles.find((b) => b.weekStarting.getTime() === lastWeekStart.getTime())
+        const battle = lane.bossBattles.find(
+          (b) => b.weekStarting.getTime() === thisWeekStart.getTime()
+        )
 
         return (
           <section key={lane.id} className="space-y-3 rounded-lg border p-4">
@@ -76,19 +124,8 @@ export default async function BossBattlesPage() {
                 <div className="text-sm font-medium text-green-600">
                   ✅ Target hit
                 </div>
-                <BossBattleForm
-                  laneId={lane.id}
-                  laneName={lane.name}
-                  weekStarting={thisWeekStart}
-                  existingReport={existing?.selfReport}
-                  existingCoachNote={existing?.coachNote ?? undefined}
-                  createBossBattle={async (data) => {
-                    "use server"
-                    const r = await createBossBattle(data)
-                    return { coachNote: r.ok ? r.coachNote : undefined }
-                  }}
-                />
-                {existing && (
+                {challengeCard(lane.id, thisWeekStart, battle)}
+                {battle?.completedAt && (
                   <BossBattleSwapTrigger
                     lane={{ id: lane.id, name: lane.name, emoji: lane.emoji }}
                     inactiveLanes={inactiveLanes}
@@ -109,68 +146,29 @@ export default async function BossBattlesPage() {
         )
       })}
 
-      {lanes
-        .filter((lane) => {
-          const lastWeekHits = lane.checkIns.filter(
-            (c) => c.date >= lastWeekStart && c.date < thisWeekStart
-          ).length
-          const lastWeekBattle = lane.bossBattles.find(
-            (b) => b.weekStarting.getTime() === lastWeekStart.getTime()
-          )
-          return lastWeekHits >= lane.targetPerWeek && !lastWeekBattle
-        })
-        .map((lane) => (
-          <div key={lane.id} className="rounded-lg border p-4">
-            <div className="mb-3 font-medium">
-              {lane.emoji} {lane.name}
-            </div>
-            <BossBattleForm
-              laneId={lane.id}
-              laneName={lane.name}
-              weekStarting={lastWeekStart}
-              createBossBattle={async (data) => {
-                "use server"
-                const r = await createBossBattle(data)
-                return { coachNote: r.ok ? r.coachNote : undefined }
-              }}
-            />
-          </div>
-        )).length > 0 && (
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold">
-              Last week's unfought boss — {formatWeekLabel(lastWeekStart)}
-            </h2>
-            <div className="grid gap-4">
-              {lanes
-                .filter((lane) => {
-                  const lastWeekHits = lane.checkIns.filter(
-                    (c) => c.date >= lastWeekStart && c.date < thisWeekStart
-                  ).length
-                  const lastWeekBattle = lane.bossBattles.find(
+      {graceLanes.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-xl font-bold">
+            Last week's unfought boss — {formatWeekLabel(lastWeekStart)}
+          </h2>
+          <div className="grid gap-4">
+            {graceLanes.map((lane) => (
+              <div key={lane.id} className="rounded-lg border p-4">
+                <div className="mb-3 font-medium">
+                  {lane.emoji} {lane.name}
+                </div>
+                {challengeCard(
+                  lane.id,
+                  lastWeekStart,
+                  lane.bossBattles.find(
                     (b) => b.weekStarting.getTime() === lastWeekStart.getTime()
                   )
-                  return lastWeekHits >= lane.targetPerWeek && !lastWeekBattle
-                })
-                .map((lane) => (
-                  <div key={lane.id} className="rounded-lg border p-4">
-                    <div className="mb-3 font-medium">
-                      {lane.emoji} {lane.name}
-                    </div>
-                    <BossBattleForm
-                      laneId={lane.id}
-                      laneName={lane.name}
-                      weekStarting={lastWeekStart}
-                      createBossBattle={async (data) => {
-                        "use server"
-                        const r = await createBossBattle(data)
-                        return { coachNote: r.ok ? r.coachNote : undefined }
-                      }}
-                    />
-                  </div>
-                ))}
-            </div>
-          </section>
-        )}
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   )
 }
