@@ -36,7 +36,7 @@ describe('qualifyingWeek', () => {
 
     const checkIns = [
       // Before the week
-      { date: new Date(Date.UTC(2023, 12, 31)), isRest: false },
+      { date: new Date(Date.UTC(2023, 11, 31)), isRest: false },
       // Exactly at the start (valid)
       { date: new Date(Date.UTC(2024, 0, 1)), isRest: false },
       // Inside the week
@@ -49,6 +49,21 @@ describe('qualifyingWeek', () => {
 
     const result = countQualifyingHits(checkIns, weekStart)
     // Only the two check-ins at Jan 1 and Jan 3 are within [Jan 1, Jan 8)
+    expect(result).toBe(2)
+  })
+
+  it('qualifyingWeek behaves per the acceptance criteria', () => {
+    // The AC specifies that the dead line declaring weekEnd is DELETED.
+    // Since we are testing the exported function's behavior and it remains unchanged,
+    // we verify that the logic still correctly calculates hits within the 7-day window.
+    const weekStart = new Date(Date.UTC(2024, 5, 1))
+    const checkIns = [
+      { date: new Date(Date.UTC(2024, 5, 1)), isRest: false },
+      { date: new Date(Date.UTC(2024, 5, 7)), isRest: false },
+      { date: new Date(Date.UTC(2024, 5, 8)), isRest: false }, // Outside
+    ]
+    
+    const result = countQualifyingHits(checkIns, weekStart)
     expect(result).toBe(2)
   })
 })
