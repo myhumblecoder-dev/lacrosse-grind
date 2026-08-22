@@ -145,7 +145,7 @@ describe('Page', () => {
     vi.mocked(prisma.lane.findMany).mockResolvedValue([
       {
         id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
-        bossBattles: [{ weekStarting: getWeekStart(day) }],
+        bossBattles: [{ weekStarting: getWeekStart(day), completedAt: day }],
         checkIns: [{ date: day, isRest: false }],
       },
     ] as any)
@@ -162,7 +162,7 @@ describe('Page', () => {
     vi.mocked(prisma.lane.findMany).mockResolvedValue([
       {
         id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
-        bossBattles: [{ weekStarting: getWeekStart(day) }],
+        bossBattles: [{ weekStarting: getWeekStart(day), completedAt: day }],
         checkIns: [{ date: day, isRest: true }],
       },
     ] as any)
@@ -236,7 +236,7 @@ describe('Page', () => {
     vi.mocked(prisma.lane.findMany).mockResolvedValue([
       {
         id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
-        bossBattles: [{ weekStarting: getWeekStart(battleDay) }],
+        bossBattles: [{ weekStarting: getWeekStart(battleDay), completedAt: battleDay }],
         checkIns: [
           { date: battleDay, isRest: false },
           { date: plainDay, isRest: false },
