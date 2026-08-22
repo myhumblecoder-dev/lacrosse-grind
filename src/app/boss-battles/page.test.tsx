@@ -98,8 +98,8 @@ describe('Page', () => {
     render(PageComponent)
 
     expect(screen.getByText(`Last week's unfought boss — ${formatWeekLabel(lastWeekStart)}`)).toBeInTheDocument()
-    // the lane appears twice: its current-week card AND the grace section
     expect(screen.getAllByText(/💪 Strength/)).toHaveLength(2)
+    expect(screen.getAllByTestId('face-boss').length).toBeGreaterThanOrEqual(1)
   })
 
   it('a fought last week stays quiet', async () => {
@@ -117,7 +117,7 @@ describe('Page', () => {
         { date: new Date(lastWeekStart.getTime() + 86400000), laneId: 'l1', isRest: false },
         { date: new Date(lastWeekStart.getTime() + 172800000), laneId: 'l1', isRest: false },
       ],
-      bossBattles: [{ weekStarting: lastWeekStart, selfReport: 'Done', coachNote: 'Good' }],
+      bossBattles: [{ weekStarting: lastWeekStart, challenge: 'burpees', completedAt: new Date(), coachNote: 'Good' }],
     } as any
 
     vi.mocked(db.lane.findMany).mockResolvedValueOnce([lane])
@@ -202,8 +202,8 @@ describe('Page', () => {
     const PageComponent = await Page()
     render(PageComponent)
 
-    expect(screen.getByText((_, el) => el?.textContent === '5 / 5 days')).toBeInTheDocument()
     expect(screen.getByText('✅ Target hit')).toBeInTheDocument()
+    expect(screen.getByTestId('face-boss')).toBeInTheDocument()
     expect(screen.queryByTestId('battle-locked')).not.toBeInTheDocument()
   })
 
@@ -227,5 +227,46 @@ describe('Page', () => {
     render(PageComponent)
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`Boss Battles — week of ${formatWeekLabel(thisWeekStart)}`)
+  })
+
+  it('an active challenge offers I beat it and one re-roll', async () => {
+    const { prisma } = await import('@/lib/db')
+    const trainingDay = getTrainingDay(new Date())
+    const thisWeekStart = getWeekStart(trainingDay)
+    vi.mocked(prisma.lane.findMany).mockResolvedValueOnce([
+      {
+        id: 'l1', name: 'Pushups', emoji: '💪', targetPerWeek: 2, isActive: true, sortOrder: 1,
+        checkIns: [
+          { date: new Date(thisWeekStart.getTime() + 3600000), laneId: 'l1', isRest: false },
+          { date: new Date(thisWeekStart.getTime() + 90000000), laneId: 'l1', isRest: false },
+        ],
+        bossBattles: [{ id: 'b1', weekStarting: thisWeekStart, challenge: '3 sets of 5 burpees', rerolled: false, completedAt: null, coachNote: null }],
+      },
+    ] as never)
+
+    render(await Page())
+
+    expect(screen.getByTestId('boss-challenge')).toHaveTextContent('3 sets of 5 burpees')
+    expect(screen.getByTestId('beat-boss')).toBeInTheDocument()
+    expect(screen.getByTestId('reroll-boss')).toBeInTheDocument()
+  })
+
+  it('a defeated boss celebrates with the coach note', async () => {
+    const { prisma } = await import('@/lib/db')
+    const trainingDay = getTrainingDay(new Date())
+    const thisWeekStart = getWeekStart(trainingDay)
+    vi.mocked(prisma.lane.findMany).mockResolvedValueOnce([
+      {
+        id: 'l1', name: 'Pushups', emoji: '💪', targetPerWeek: 1, isActive: true, sortOrder: 1,
+        checkIns: [{ date: new Date(thisWeekStart.getTime() + 3600000), laneId: 'l1', isRest: false }],
+        bossBattles: [{ id: 'b1', weekStarting: thisWeekStart, challenge: '3 sets of 5 burpees', rerolled: true, completedAt: new Date(), coachNote: 'Burpees fear you now.' }],
+      },
+    ] as never)
+
+    render(await Page())
+
+    expect(screen.getByTestId('boss-defeated')).toBeInTheDocument()
+    expect(screen.getByTestId('coach-note')).toHaveTextContent('Burpees fear you now.')
+    expect(screen.queryByTestId('beat-boss')).not.toBeInTheDocument()
   })
 })
