@@ -8,7 +8,7 @@ export interface RecapLaneInput {
   isActive: boolean;
   sortOrder: number;
   checkIns: { date: Date; isRest: boolean }[];
-  bossBattles: { weekStarting: Date }[];
+  bossBattles: { weekStarting: Date; completedAt: Date | null }[];
 }
 
 export interface RecapDay {
@@ -74,14 +74,16 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
   // 2. Process Boss Battles to mark battles fought in specific weeks
   for (const lane of lanes) {
     for (const battle of lane.bossBattles) {
-      const weekStart = getWeekStart(battle.weekStarting);
-      const weekKey = weekStart.toISOString();
+      if (battle.completedAt) {
+        const weekStart = getWeekStart(battle.weekStarting);
+        const weekKey = weekStart.toISOString();
 
-      if (weekMap.has(weekKey)) {
-        const weekEntry = weekMap.get(weekKey)!;
-        if (weekEntry.laneData.has(lane.id)) {
-          const laneWeek = weekEntry.laneData.get(lane.id)!;
-          laneWeek.battleFought = true;
+        if (weekMap.has(weekKey)) {
+          const weekEntry = weekMap.get(weekKey)!;
+          if (weekEntry.laneData.has(lane.id)) {
+            const laneWeek = weekEntry.laneData.get(lane.id)!;
+            laneWeek.battleFought = true;
+          }
         }
       }
     }
