@@ -64,7 +64,7 @@ describe('weekRecap', () => {
         { date: new Date(Date.UTC(2024, 0, 2)), isRest: false },
         { date: new Date(Date.UTC(2024, 0, 9)), isRest: false }
       ],
-      bossBattles: [{ weekStarting: week2Start }]
+      bossBattles: [{ weekStarting: week2Start, completedAt: new Date(Date.UTC(2024, 0, 10)) }]
     }];
 
     const result = buildWeekRecaps(input);
@@ -75,6 +75,30 @@ describe('weekRecap', () => {
 
     expect(week2?.lanes[0].battleFought).toBe(true);
     expect(week1?.lanes[0].battleFought).toBe(false);
+  });
+
+  it('an uncompleted battle does not mark the week', () => {
+    const week1Start = new Date(Date.UTC(2024, 0, 1));
+    const week2Start = new Date(Date.UTC(2024, 0, 8));
+
+    const input: RecapLaneInput[] = [{
+      id: '1', name: 'L1', emoji: '🔥', targetPerWeek: 5, isActive: true, sortOrder: 1,
+      checkIns: [
+        { date: new Date(Date.UTC(2024, 0, 2)), isRest: false },
+        { date: new Date(Date.UTC(2024, 0, 9)), isRest: false }
+      ],
+      bossBattles: [
+        {
+          weekStarting: week2Start,
+          completedAt: null // Uncompleted
+        }
+      ]
+    }];
+
+    const result = buildWeekRecaps(input);
+    const week2 = result.find(w => w.weekStart.toISOString() === week2Start.toISOString());
+    
+    expect(week2?.lanes[0].battleFought).toBe(false);
   });
 
   it('hits count rest days and days stay chronological', () => {
