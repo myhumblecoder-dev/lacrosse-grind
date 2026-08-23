@@ -1,3 +1,7 @@
+'use client';
+
+import React, { useState } from 'react';
+
 type BossChallengeCardProps = {
   challenge: string | null;
   rerolled: boolean;
@@ -5,7 +9,7 @@ type BossChallengeCardProps = {
   coachNote: string | null;
   onFace: () => Promise<void>;
   onReroll: () => Promise<void>;
-  onComplete: () => Promise<void>;
+  onComplete: () => Promise<{ leveledUp?: boolean; newLevel?: number; levelName?: string } | void>;
 };
 
 export default function BossChallengeCard({
@@ -17,28 +21,45 @@ export default function BossChallengeCard({
   onReroll,
   onComplete,
 }: BossChallengeCardProps) {
+  const [celebration, setCelebration] = useState<{ level: number; name: string } | null>(null);
+
+  const handleComplete = async () => {
+    const result = await onComplete();
+    if (result?.leveledUp && result.newLevel && result.levelName) {
+      setCelebration({ level: result.newLevel, name: result.levelName });
+    }
+  };
   // State 1: No challenge exists yet
   if (challenge === null) {
     return (
-      <form
-        action={onFace}
-        className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-      >
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <button
-          type="submit"
-        className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+          type="button"
+          onClick={() => onFace()}
+          className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
           data-testid="face-boss"
         >
           Face the boss
         </button>
-      </form>
+      </div>
     );
   }
 
   // State 2: Challenge is active (not completed)
   if (completedAt === null) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="relative rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        {/* The burst lives in BOTH the active and defeated branches: right
+            after "I beat it" the props haven't revalidated yet, and the
+            celebration must not wait for the server round-trip. */}
+        {celebration && (
+          <div
+            data-testid="level-up-burst"
+            className="animate-level-up-pop absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/80 font-bold text-emerald-600"
+          >
+            LEVEL UP! {celebration.name.toUpperCase()}
+          </div>
+        )}
         <p
           className="mb-4 text-sm font-medium text-slate-600"
           data-testid="boss-challenge"
@@ -46,26 +67,24 @@ export default function BossChallengeCard({
           {challenge}
         </p>
         <div className="flex flex-col gap-2">
-          <form action={onComplete}>
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
-              data-testid="beat-boss"
-            >
-              I beat it
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={() => handleComplete()}
+            className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500"
+            data-testid="beat-boss"
+          >
+            I beat it
+          </button>
 
           {!rerolled && (
-            <form action={onReroll}>
-              <button
-                type="submit"
-                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate랑-700 transition-colors hover:bg-slate-50"
-                data-testid="reroll-boss"
-              >
-                Different challenge
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => onReroll()}
+              className="w-full rounded-lg border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              data-testid="reroll-boss"
+            >
+              Different challenge
+            </button>
           )}
         </div>
       </div>
@@ -74,9 +93,20 @@ export default function BossChallengeCard({
 
   // State 3: Boss has been defeated
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+    <div className="relative rounded-xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+      {/* celebration state is only ever set by a successful completion —
+          it IS the defeated proof, and gating on the completedAt prop would
+          hide the burst until the server round-trip re-renders. */}
+      {celebration && (
+        <div
+          data-testid="level-up-burst"
+          className="animate-level-up-pop absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/80 font-bold text-emerald-600"
+        >
+          LEVEL UP! {celebration.name.toUpperCase()}
+        </div>
+      )}
       <p
-        className="text-sm font-bold text-emerald-700"
+        className="text-sm font-bold text-slate-700"
         data-testid="boss-defeated"
       >
         Boss defeated! {challenge}

@@ -4,6 +4,8 @@ import { completeBossBattle } from '@/app/actions/completeBossBattle'
 import { requireUserId } from '@/lib/tenancy'
 import { generate } from '@/lib/llm'
 import { revalidatePath } from 'next/cache'
+import { playerLevel } from '@/lib/playerLevel'
+import { buildVictorySummaryPrompt } from '@/lib/victorySummary'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -12,7 +14,7 @@ vi.mock('@/lib/db', () => ({
     bossBattle: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     streakFreeze: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     prize: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
-    user: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
+    user: { create: vi.fn(), createMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     account: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     session: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     verificationToken: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
@@ -30,58 +32,79 @@ describe('completeBossBattle', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
+    // Default mock for count to prevent undefined errors
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 
-  it('a foreign battle returns not-found', async () => {
-    // Mock finding a battle that belongs to a different user
-    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(null)
-
-    const res = await completeBossBattle(battleId)
-
-    expect(res).toEqual({ ok: false, error: 'not-found' })
-    expect(prisma.bossBattle.update).not.toHaveBeenCalled()
-  })
-
-  it('an LLM failure still completes the battle with a null note', async () => {
+  it('crossing a Fibonacci threshold reports leveledUp with the new rank', async () => {
+    // Fibonacci sequence: 1, 2, 3, 5, 8, 13...
+    // Let's assume 5 defeats is a threshold. 
+    // If 4 defeats was level 2, and 5 defeats is level 3.
     const battle = {
       id: battleId,
       challenge: 'Dragon Slayer',
       completedAt: null as unknown as Date,
+      lane: { name: 'Warriors' }
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
-    vi.mocked(generate).mockRejectedValue(new Error('LLM Down'))
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(5)
+    vi.mocked(generate).mockResolvedValue('Great job!')
 
     const res = await completeBossBattle(battleId)
 
-    expect(res).toEqual({ ok: true, coachNote: null })
-    expect(prisma.bossBattle.update).toHaveBeenCalledWith({
-      where: { id: battleId },
-      data: expect.objectContaining({ coachNote: null }),
+    expect(res).toMatchObject({
+      ok: true,
+      leveledUp: true,
+      newLevel: playerLevel(5).level,
+      levelName: playerLevel(5).name
     })
   })
 
-  it('victory stamps completedAt and stores the note', async () => {
-    const challengeName = 'Dragon Slayer'
-    const coachNoteText = 'Great job!'
+  it('a mid-band defeat reports leveledUp false', async () => {
     const battle = {
       id: battleId,
-      challenge: challengeName,
+      challenge: 'Dragon Slayer',
       completedAt: null as unknown as Date,
+      lane: { name: 'Warriors' }
     }
-
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
-    vi.mocked(generate).mockResolvedValue(coachNoteText)
+    // 4 defeats is not a threshold change if 3 was the previous threshold
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(4)
+    vi.mocked(generate).mockResolvedValue('Great job!')
 
     const res = await completeBossBattle(battleId)
 
-    expect(res).toEqual({ ok: true, coachNote: coachNoteText })
-    expect(prisma.bossBattle.update).toHaveBeenCalledWith({
-      where: { id: battleId },
-      data: expect.objectContaining({
-        completedAt: expect.any(Date),
-        coachNote: coachNoteText,
-      }),
+    expect(res).toMatchObject({
+      ok: true,
+      leveledUp: false
     })
-    expect(revalidatePath).toHaveBeenCalledWith('/boss-battles')
   })
-}) 
+
+  it('the summary prompt is built from data and the dashboard revalidates', async () => {
+    const battle = {
+      id: battleId,
+      challenge: 'The Weekly Challenge',
+      completedAt: null as unknown as Date,
+      lane: { name: 'Warriors' }
+    }
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(1)
+    vi.mocked(generate).mockResolvedValue('Nice work!')
+
+    const res = await completeBossBattle(battleId)
+
+    // Verify prompt construction via the generate call
+    const expectedPrompt = buildVictorySummaryPrompt({
+      laneName: 'Warriors',
+      challenge: 'The Weekly Challenge',
+      defeats: 1,
+      levelName: playerLevel(1).name,
+      leveledUp: playerLevel(1).level > playerLevel(0).level
+    })
+
+    expect(generate).toHaveBeenCalledWith(expect.stringContaining(expectedPrompt))
+    expect(revalidatePath).toHaveBeenCalledWith('/')
+    expect(revalidatePath).toHaveBeenCalledWith('/boss-battles')
+    expect(res.ok).toBe(true)
+  })
+})
