@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import BossChallengeCard from './BossChallengeCard'
 
@@ -15,6 +15,50 @@ describe('BossChallengeCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('a completion that levels up shows the burst with the rank', async () => {
+    const onComplete = vi.fn().mockResolvedValue({
+      leveledUp: true,
+      newLevel: 5,
+      levelName: 'Warrior',
+    })
+
+    render(
+      <BossChallengeCard
+        {...defaultProps}
+        challenge="Do 10 pushups"
+        completedAt={null}
+        onComplete={onComplete}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('beat-boss'))
+
+    const burst = await screen.findByTestId('level-up-burst')
+    expect(burst).toBeInTheDocument()
+    expect(burst).toHaveTextContent('LEVEL UP!')
+    expect(burst).toHaveTextContent(/warrior/i)
+  })
+
+  it('a completion without a level-up shows no burst', async () => {
+    const onComplete = vi.fn().mockResolvedValue({
+      leveledUp: false,
+    })
+
+    render(
+      <BossChallengeCard
+        {...defaultProps}
+        challenge="Do 10 pushups"
+        completedAt={null}
+        onComplete={onComplete}
+      />
+    )
+
+    const beatButton = screen.getByTestId('beat-boss')
+    await beatButton.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(screen.queryByTestId('level-up-burst')).toBeNull()
   })
 
   it('no challenge shows only Face the boss', async () => {
