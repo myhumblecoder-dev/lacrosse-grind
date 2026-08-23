@@ -6,11 +6,7 @@ interface PlayerAvatarCardProps {
 }
 
 export default function PlayerAvatarCard({ defeats }: PlayerAvatarCardProps) {
-  const { level, name, nextAt, progress } = playerLevel(defeats);
-
-  const nextText = nextAt !== null 
-    ? `${defeats} defeats · ${nextAt - defeats} to next` 
-    : `${defeats} defeats · max level`;
+  const { level, name, progress } = playerLevel(defeats);
 
   return (
     <div className="flex flex-row items-center gap-4 rounded-lg border p-4">
@@ -21,9 +17,6 @@ export default function PlayerAvatarCard({ defeats }: PlayerAvatarCardProps) {
           className="text-sm font-medium"
         >
           {name.charAt(0).toUpperCase() + name.slice(1)} · Level {level}
-        </div>
-        <div className="text-xs text-zinc-500">
-          {nextText}
         </div>
         <div className="h-2 w-full rounded-full bg-zinc-700">
           <div

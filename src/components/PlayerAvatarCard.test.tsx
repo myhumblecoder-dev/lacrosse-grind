@@ -21,13 +21,12 @@ describe('PlayerAvatarCard', () => {
     const levelName = screen.getByTestId('avatar-level-name')
     expect(levelName).toHaveTextContent(/Knight · Level 5/)
     
-    expect(screen.getByText('8 defeats · 5 to next')).toBeInTheDocument()
+    expect(screen.queryByText(/defeats/)).not.toBeInTheDocument()
   })
 
-  it('the cap renders max level copy and a full bar', async () => {
+  it('the cap renders a full bar', async () => {
     render(<PlayerAvatarCard defeats={99999} />)
     
-    expect(screen.getByText(/max level/i)).toBeInTheDocument()
     const bar = screen.getByTestId('avatar-progress-bar')
     expect(bar).toHaveStyle({ width: '100%' })
   })
@@ -36,6 +35,8 @@ describe('PlayerAvatarCard', () => {
     render(<PlayerAvatarCard defeats={0} />)
     
     expect(screen.getByTestId('avatar-level-name')).toHaveTextContent(/Level 0/)
-    expect(screen.getByText(/0 defeats/)).toBeInTheDocument()
+    // The zero state stays quiet — no defeat arithmetic until the first win.
+    expect(screen.queryByText(/0 defeats/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/to next/)).not.toBeInTheDocument()
   })
 })
