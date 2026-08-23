@@ -14,7 +14,7 @@ vi.mock('@/lib/db', () => ({
     bossBattle: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     streakFreeze: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     prize: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
-    user: { create: vi.fn(), createMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
+    user: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     account: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     session: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
     verificationToken: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
@@ -28,23 +28,22 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 describe('completeBossBattle', () => {
   const userId = 'u1'
   const battleId = 'b1'
+  const laneId = 'l1'
 
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
-    // Default mock for count to prevent undefined errors
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(null as any)
   })
 
   it('crossing a Fibonacci threshold reports leveledUp with the new rank', async () => {
-    // Fibonacci sequence: 1, 2, 3, 5, 8, 13...
-    // Let's assume 5 defeats is a threshold. 
-    // If 4 defeats was level 2, and 5 defeats is level 3.
     const battle = {
       id: battleId,
+      laneId,
       challenge: 'Dragon Slayer',
       completedAt: null as unknown as Date,
-      lane: { name: 'Warriors' }
+      lane: { name: 'Warriors', userId }
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(5)
@@ -65,10 +64,9 @@ describe('completeBossBattle', () => {
       id: battleId,
       challenge: 'Dragon Slayer',
       completedAt: null as unknown as Date,
-      lane: { name: 'Warriors' }
+      lane: { name: 'Warriors', userId }
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
-    // 4 defeats is not a threshold change if 3 was the previous threshold
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(4)
     vi.mocked(generate).mockResolvedValue('Great job!')
 
@@ -85,7 +83,7 @@ describe('completeBossBattle', () => {
       id: battleId,
       challenge: 'The Weekly Challenge',
       completedAt: null as unknown as Date,
-      lane: { name: 'Warriors' }
+      lane: { name: 'Warriors', userId }
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(1)
@@ -93,7 +91,6 @@ describe('completeBossBattle', () => {
 
     const res = await completeBossBattle(battleId)
 
-    // Verify prompt construction via the generate call
     const expectedPrompt = buildVictorySummaryPrompt({
       laneName: 'Warriors',
       challenge: 'The Weekly Challenge',
@@ -106,5 +103,41 @@ describe('completeBossBattle', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/')
     expect(revalidatePath).toHaveBeenCalledWith('/boss-battles')
     expect(res.ok).toBe(true)
+  })
+
+  it('a level-up banks a freeze on the earning lane', async () => {
+    const battle = {
+      id: battleId,
+      laneId,
+      challenge: 'Dragon Slayer',
+      completedAt: null as unknown as Date,
+      lane: { name: 'Warriors', userId, id: laneId }
+    }
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(5) // Level up threshold
+    vi.mocked(generate).mockResolvedValue('Great job!')
+
+    await completeBossBattle(battleId)
+
+    expect(prisma.streakFreeze.create).toHaveBeenCalledWith({
+      data: { laneId: laneId }
+    })
+  })
+
+  it('a mid-band defeat banks nothing', async () => {
+    const battle = {
+      id: battleId,
+      laneId,
+      challenge: 'Dragon Slayer',
+      completedAt: null as unknown as Date,
+      lane: { name: 'Warriors', userId, id: laneId }
+    }
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(4) // No level up
+    vi.mocked(generate).mockResolvedValue('Great job!')
+
+    await completeBossBattle(battleId)
+
+    expect(prisma.streakFreeze.create).not.toHaveBeenCalled()
   })
 })
