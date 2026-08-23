@@ -34,6 +34,9 @@ vi.mock('@/lib/db', () => ({
     prize: {
       findUnique: vi.fn(),
     },
+    bossBattle: {
+      count: vi.fn(),
+    },
   },
 }))
 
