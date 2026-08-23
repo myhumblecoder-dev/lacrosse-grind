@@ -22,7 +22,7 @@ export default function PlayerAvatar({ level, name }: PlayerAvatarProps) {
     <div
       data-testid="player-avatar"
       data-level={level}
-      className="animate-avatar-bob motion-reduce:animate-none"
+      className="avatar-scanlines relative animate-avatar-bob motion-reduce:animate-none"
     >
       {hasError ? (
         <div

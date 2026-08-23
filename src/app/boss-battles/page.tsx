@@ -38,7 +38,11 @@ function challengeCard(laneId: string, weekStarting: Date, battle: Battle | unde
       }}
       onComplete={async () => {
         "use server"
-        if (battle) await completeBossBattle(battle.id)
+        if (!battle) return
+        const r = await completeBossBattle(battle.id)
+        if (r.ok) {
+          return { leveledUp: r.leveledUp, newLevel: r.newLevel, levelName: r.levelName }
+        }
       }}
     />
   )
