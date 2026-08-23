@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { swapSchema } from '@/lib/validation'
 import { validateSwap } from '@/lib/validateSwap'
 import { requireUserId } from '@/lib/tenancy'
+import { playerLevel } from '@/lib/playerLevel'
+import { requiredLanes } from '@/lib/laneRequirement'
 
 type SwapResult = { ok: true } | { ok: false; error: string }
 
@@ -31,7 +33,13 @@ export async function swapLane(input: unknown): Promise<SwapResult> {
   const activeLaneCount = await prisma.lane.count({
     where: { isActive: true, userId }
   })
-  const decision = validateSwap(activeLaneCount)
+
+  const defeats = await prisma.bossBattle.count({
+    where: { completedAt: { not: null }, lane: { userId } }
+  })
+
+  const floor = requiredLanes(playerLevel(defeats).level)
+  const decision = validateSwap(activeLaneCount, floor)
 
   if (decision.blocked) return { ok: false, error: 'blocked' }
   if (decision.mustPickReplacement && !inLaneId) {
