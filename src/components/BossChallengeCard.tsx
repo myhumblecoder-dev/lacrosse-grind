@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 
 type BossChallengeCardProps = {
   challenge: string | null;
-  rerolled: boolean;
+  rerollsLeft: number;
   completedAt: Date | null;
   coachNote: string | null;
   onFace: () => Promise<void>;
@@ -14,7 +14,7 @@ type BossChallengeCardProps = {
 
 export default function BossChallengeCard({
   challenge,
-  rerolled,
+  rerollsLeft,
   completedAt,
   coachNote,
   onFace,
@@ -76,7 +76,7 @@ export default function BossChallengeCard({
             I beat it
           </button>
 
-          {!rerolled && (
+          {rerollsLeft > 0 && (
             <button
               type="button"
               onClick={() => onReroll()}

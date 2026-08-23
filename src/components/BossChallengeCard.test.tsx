@@ -5,7 +5,7 @@ import BossChallengeCard from './BossChallengeCard'
 describe('BossChallengeCard', () => {
   const defaultProps = {
     challenge: null,
-    rerolled: false,
+    rerollsLeft: 1,
     completedAt: null,
     coachNote: null,
     onFace: vi.fn(),
@@ -74,7 +74,7 @@ describe('BossChallengeCard', () => {
       <BossChallengeCard
         {...defaultProps}
         challenge="Do 10 pushups"
-        rerolled={false}
+        rerollsLeft={1}
       />
     )
     expect(screen.getByTestId('boss-challenge')).toHaveTextContent('Do 10 pushups')
@@ -87,7 +87,7 @@ describe('BossChallengeCard', () => {
       <BossChallengeCard
         {...defaultProps}
         challenge="Do 10 pushups"
-        rerolled={true}
+        rerollsLeft={0}
       />
     )
     expect(screen.getByTestId('boss-challenge')).toHaveTextContent('Do 10 pushups')

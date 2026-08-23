@@ -9,6 +9,8 @@ import BossChallengeCard from "@/components/BossChallengeCard"
 import BossBattleSwapTrigger from "@/components/BossBattleSwapTrigger"
 import { swapLane } from "@/app/actions/swapLane"
 import { validateSwap } from "@/lib/validateSwap"
+import { playerLevel } from "@/lib/playerLevel"
+import { requiredLanes } from "@/lib/laneRequirement"
 
 export const dynamic = "force-dynamic"
 
@@ -16,16 +18,16 @@ type Battle = {
   id: string
   weekStarting: Date
   challenge: string | null
-  rerolled: boolean
+  rerollCount: number
   completedAt: Date | null
   coachNote: string | null
 }
 
-function challengeCard(laneId: string, weekStarting: Date, battle: Battle | undefined) {
+function challengeCard(laneId: string, weekStarting: Date, battle: Battle | undefined, allowance: number) {
   return (
     <BossChallengeCard
       challenge={battle?.challenge ?? null}
-      rerolled={battle?.rerolled ?? false}
+      rerollsLeft={battle ? Math.max(0, allowance - battle.rerollCount) : allowance}
       completedAt={battle?.completedAt ?? null}
       coachNote={battle?.coachNote ?? null}
       onFace={async () => {
@@ -76,7 +78,12 @@ export default async function BossBattlesPage() {
     where: { isActive: false, userId },
     select: { id: true, name: true, emoji: true },
   })
-  const swapState = validateSwap(lanes.length)
+  const defeats = await db.bossBattle.count({
+    where: { completedAt: { not: null }, lane: { userId } },
+  })
+  const rank = playerLevel(defeats)
+  const rerollAllowance = rank.level >= 5 ? 2 : 1
+  const swapState = validateSwap(lanes.length, requiredLanes(rank.level))
 
   // A last-week boss stays fightable for one grace week when its target was
   // hit but the boss was never DEFEATED.
@@ -128,7 +135,7 @@ export default async function BossBattlesPage() {
                 <div className="text-sm font-medium text-green-600">
                   ✅ Target hit
                 </div>
-                {challengeCard(lane.id, thisWeekStart, battle)}
+                {challengeCard(lane.id, thisWeekStart, battle, rerollAllowance)}
                 {battle?.completedAt && (
                   <BossBattleSwapTrigger
                     lane={{ id: lane.id, name: lane.name, emoji: lane.emoji }}
@@ -166,7 +173,8 @@ export default async function BossBattlesPage() {
                   lastWeekStart,
                   lane.bossBattles.find(
                     (b) => b.weekStarting.getTime() === lastWeekStart.getTime()
-                  )
+                  ),
+                  rerollAllowance
                 )}
               </div>
             ))}

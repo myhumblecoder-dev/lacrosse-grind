@@ -6,6 +6,8 @@ import { setLaneActive } from "@/app/actions/setLaneActive"
 import { deleteLane } from "@/app/actions/deleteLane"
 import { swapLane } from "@/app/actions/swapLane"
 import { validateSwap } from "@/lib/validateSwap"
+import { playerLevel } from "@/lib/playerLevel"
+import { requiredLanes } from "@/lib/laneRequirement"
 import LaneList from "@/components/LaneList"
 import LaneForm from "@/components/LaneForm"
 
@@ -21,7 +23,11 @@ export default async function LanesPage() {
   // The floor of three governs every lane change, so the page decides once
   // what is legal right now and hands the answer down.
   const activeLaneCount = lanes.filter((l) => l.isActive).length
-  const swapState = validateSwap(activeLaneCount)
+  const defeats = await prisma.bossBattle.count({
+    where: { completedAt: { not: null }, lane: { userId } },
+  })
+  const demand = requiredLanes(playerLevel(defeats).level)
+  const swapState = validateSwap(activeLaneCount, demand)
   const inactiveLanes = lanes
     .filter((l) => !l.isActive)
     .map((l) => ({ id: l.id, name: l.name, emoji: l.emoji }))
@@ -48,6 +54,7 @@ export default async function LanesPage() {
           return deleteLane(id)
         }}
         swapState={swapState}
+        requiredLanes={demand}
         inactiveLanes={inactiveLanes}
         onSwapLane={async (outLaneId, inLaneId) => {
           "use server"
