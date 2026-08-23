@@ -12,6 +12,7 @@ import SeasonResetButton from "@/components/SeasonResetButton"
 import SeasonSetupPanel from "@/components/SeasonSetupPanel"
 import SeasonTimelineNote from "@/components/SeasonTimelineNote"
 import { getSeasonReadiness } from "@/lib/seasonReadiness"
+import PlayerAvatarCard from "@/components/PlayerAvatarCard"
 
 export const dynamic = "force-dynamic"
 
@@ -20,9 +21,12 @@ export default async function DashboardPage() {
   const today = getTrainingDay(new Date())
   const weekStart = getWeekStart(today)
 
-  const [prize, activeLaneCount] = await Promise.all([
+  const [prize, activeLaneCount, defeats] = await Promise.all([
     prisma.prize.findUnique({ where: { userId } }),
-    prisma.lane.count({ where: { isActive: true, userId } })
+    prisma.lane.count({ where: { isActive: true, userId } }),
+    prisma.bossBattle.count({
+      where: { completedAt: { not: null }, lane: { userId } },
+    }),
   ])
 
   const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize))
@@ -55,6 +59,8 @@ export default async function DashboardPage() {
           />
         )}
       </div>
+
+      <PlayerAvatarCard defeats={defeats} />
 
       <h1 className="text-2xl font-bold">Today</h1>
       <p className="mt-1 text-sm text-zinc-500">Your daily check-in. Show up for each lane — effort and consistency are the only score, and rest days count too.</p>
