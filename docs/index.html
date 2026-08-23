@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lacrosse Grind — showing up is the whole game</title>
+<meta name="description" content="A training companion for kids that rewards showing up, not performance. Boss battles, a growing monster, and a season prize the family picks together.">
+<style>
+  :root {
+    --bg: #09090b; --panel: #18181b; --border: #27272a;
+    --text: #f4f4f5; --muted: #a1a1aa; --green: #34d399; --purple: #a78bfa; --amber: #fbbf24;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; line-height: 1.7; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+  header { padding: 72px 0 40px; text-align: center; }
+  h1 { font-size: clamp(1.8rem, 5vw, 3rem); letter-spacing: -1px; }
+  h1 .grind { color: var(--green); }
+  .tag { color: var(--muted); margin-top: 12px; font-size: 1.05rem; }
+  .evo { display: flex; justify-content: center; align-items: flex-end; gap: 4px; flex-wrap: wrap; margin: 40px 0 8px; }
+  .evo img { image-rendering: pixelated; border-radius: 8px; border: 1px solid var(--border); }
+  .evo img:nth-child(1) { width: 56px; } .evo img:nth-child(2) { width: 62px; }
+  .evo img:nth-child(3) { width: 68px; } .evo img:nth-child(4) { width: 74px; }
+  .evo img:nth-child(5) { width: 80px; } .evo img:nth-child(6) { width: 86px; }
+  .evo img:nth-child(7) { width: 92px; } .evo img:nth-child(8) { width: 98px; }
+  .evo img:nth-child(9) { width: 108px; border-color: var(--amber); }
+  .evo-caption { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 24px; }
+  section { padding: 48px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: 1.5rem; margin-bottom: 20px; }
+  h2 .accent { color: var(--purple); }
+  p + p { margin-top: 14px; }
+  .muted { color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-top: 24px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card h3 { font-size: 1.05rem; margin-bottom: 10px; }
+  .card p { font-size: .92rem; color: var(--muted); }
+  .emoji { font-size: 1.6rem; display: block; margin-bottom: 10px; }
+  .quote { border-left: 3px solid var(--green); padding: 4px 0 4px 18px; margin: 24px 0; color: var(--muted); font-style: italic; }
+  .cta { text-align: center; padding: 56px 0 80px; }
+  .cta a.button { display: inline-block; background: var(--green); color: #052e1b; font-weight: 700; padding: 14px 34px; border-radius: 10px; text-decoration: none; font-size: 1.05rem; }
+  .cta a.button:hover { filter: brightness(1.1); }
+  .cta .sub { margin-top: 14px; font-size: .85rem; color: var(--muted); }
+  footer { border-top: 1px solid var(--border); padding: 28px 0 48px; text-align: center; color: var(--muted); font-size: .8rem; }
+  footer a { color: var(--muted); }
+  ul.plain { list-style: none; margin-top: 16px; }
+  ul.plain li { padding-left: 26px; position: relative; margin-top: 10px; }
+  ul.plain li::before { content: "✓"; position: absolute; left: 0; color: var(--green); }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <h1>Lacrosse <span class="grind">Grind</span></h1>
+  <p class="tag">A training companion for kids where showing up is the whole game.</p>
+  <div class="evo" aria-label="The monster's nine evolutions, from baby to legend">
+    <img src="assets/level-0.png" alt="Level 0 — baby monster with a pacifier" title="Baby · 0 bosses">
+    <img src="assets/level-1.png" alt="Level 1 — toddler monster" title="Toddler · 1 boss">
+    <img src="assets/level-2.png" alt="Level 2 — tween monster in first clothes" title="Tween · 2 bosses">
+    <img src="assets/level-3.png" alt="Level 3 — squire monster in a tunic" title="Squire · 3 bosses">
+    <img src="assets/level-4.png" alt="Level 4 — page monster with sword and shield" title="Page · 5 bosses">
+    <img src="assets/level-5.png" alt="Level 5 — armored knight monster" title="Knight · 8 bosses">
+    <img src="assets/level-6.png" alt="Level 6 — leaping barbarian monster with twin axes" title="Barbarian · 13 bosses">
+    <img src="assets/level-7.png" alt="Level 7 — towering warlord monster with spear" title="Warlord · 21 bosses">
+    <img src="assets/level-8.png" alt="Level 8 — winged legend with a flaming sword" title="Legend · 34 bosses">
+  </div>
+  <p class="evo-caption">Nine evolutions. Every one earned by showing up.</p>
+</header>
+
+<section class="wrap">
+  <h2>The <span class="accent">problem</span></h2>
+  <p>Most youth-sports apps grade kids. Times, percentages, leaderboards, streaks that
+  shatter the first time life happens. A ten-year-old doesn't quit training because
+  practice is hard — they quit because an app told them Tuesday's effort wasn't good
+  enough, or because missing one day erased two weeks of pride.</p>
+  <p>And the "wellness" alternatives swing the other way: journaling prompts, mood
+  check-ins, reflection essays. Kids don't want therapy homework. They want to
+  <em>play</em>.</p>
+</section>
+
+<section class="wrap">
+  <h2>The <span class="accent">solution</span></h2>
+  <p>Lacrosse Grind is built on one rule: <strong>effort over outcome.</strong> The app
+  never grades performance — it only ever counts showing up.</p>
+  <div class="cards">
+    <div class="card"><span class="emoji">🥍</span><h3>Lanes, not drills</h3>
+      <p>The player picks three training lanes — "30 min jogs", "wall ball", "3 sets of
+      5 pushups" — each with a weekly target. A daily tap says <em>I showed up.</em>
+      Rest days count too.</p></div>
+    <div class="card"><span class="emoji">⚔️</span><h3>Boss battles</h3>
+      <p>Hit the week's target and a boss wakes: the coach conjures a real-world
+      challenge from the lane — pushups spawn burpees. Beat it in the backyard, tap
+      <em>I beat it</em>, victory. No essay required.</p></div>
+    <div class="card"><span class="emoji">👹</span><h3>A monster that grows</h3>
+      <p>Every defeated boss feeds the player's monster — from a diapered baby to a
+      winged legend across nine evolutions. Quit for a month? It waits. It never
+      shrinks.</p></div>
+    <div class="card"><span class="emoji">🏆</span><h3>A season, a prize</h3>
+      <p>The family picks the prize — a jersey, a trip, a new stick — and a 13-week
+      season begins. Show up 11 of 13 weeks and it's earned. Missing a week twice
+      isn't failure; it's the margin built in.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Why <span class="accent">families</span> love it</h2>
+  <ul class="plain">
+    <li><strong>No feeds, no friends lists, no ads.</strong> There is nothing to scroll.
+        The app takes thirty seconds a day and hands the rest back.</li>
+    <li><strong>The kid never chats with an AI.</strong> The coach writes short,
+        effort-framed notes from the training record only — it generates challenges and
+        celebrates victories, and it cannot be talked to. Usage is capped daily.</li>
+    <li><strong>Forgiveness is a mechanic.</strong> Rest days count as showing up,
+        streak freezes absorb a missed day, and an unfought boss stays fightable a
+        whole extra week. The design assumes real life.</li>
+    <li><strong>The prize is yours, not ours.</strong> No coins, no gems, no in-app
+        purchases. The reward is something real the family chose together.</li>
+    <li><strong>The history is honest.</strong> Retired lanes stay on the record, every
+        showed-up day stays green, and boss-battle weeks glow purple forever.</li>
+  </ul>
+  <p class="quote">Built by a dad and a bot army for one kid's lacrosse season —
+  opened up for any family that wants a season of their own.</p>
+</section>
+
+<div class="cta wrap">
+  <a class="button" href="https://lacrosse-grind.vercel.app">Start a season →</a>
+  <p class="sub">Sign in with Google · free · works on any phone</p>
+</div>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/myhumblecoder-dev/lacrosse-grind">Source on GitHub</a>
+    · effort over outcome, always
+  </div>
+</footer>
+
+</body>
+</html>
