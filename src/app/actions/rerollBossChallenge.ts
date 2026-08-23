@@ -3,6 +3,7 @@ import { requireUserId } from "@/lib/tenancy";
 import { generate } from "@/lib/llm";
 import { buildChallengePrompt } from "@/lib/bossChallenge";
 import { revalidatePath } from "next/cache";
+import { playerLevel } from "@/lib/playerLevel";
 
 export async function rerollBossChallenge(battleId: string): Promise<{ ok: true; challenge: string } | { ok: false; error: string }> {
   const userId = await requireUserId();
@@ -20,15 +21,29 @@ export async function rerollBossChallenge(battleId: string): Promise<{ ok: true;
     return { ok: false, error: 'already-defeated' };
   }
 
-  if (battle.rerolled) {
+  const defeats = await prisma.bossBattle.count({
+    where: {
+      completedAt: { not: null },
+      lane: { userId },
+    },
+  });
+
+  const rank = playerLevel(defeats);
+  const allowance = rank.level >= 5 ? 2 : 1;
+
+  if (battle.rerollCount >= allowance) {
     return { ok: false, error: 'already-rerolled' };
   }
 
-  const challenge = await generate(buildChallengePrompt(battle.lane.name, battle.lane.emoji));
+  const challenge = await generate(buildChallengePrompt(battle.lane.name, battle.lane.emoji, rank.name));
 
   await prisma.bossBattle.update({
     where: { id: battleId },
-    data: { challenge, rerolled: true },
+    data: {
+      challenge,
+      rerollCount: { increment: 1 },
+      rerolled: true,
+    },
   });
 
   revalidatePath('/boss-battles');
