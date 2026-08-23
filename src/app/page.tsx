@@ -13,6 +13,10 @@ import SeasonSetupPanel from "@/components/SeasonSetupPanel"
 import SeasonTimelineNote from "@/components/SeasonTimelineNote"
 import { getSeasonReadiness } from "@/lib/seasonReadiness"
 import PlayerAvatarCard from "@/components/PlayerAvatarCard"
+import { FreezeBadge } from "@/components/FreezeBadge"
+import { playerLevel } from "@/lib/playerLevel"
+import { requiredLanes } from "@/lib/laneRequirement"
+import Link from "next/link"
 
 export const dynamic = "force-dynamic"
 
@@ -29,7 +33,15 @@ export default async function DashboardPage() {
     }),
   ])
 
-  const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize))
+  const rank = playerLevel(defeats)
+  const demand = requiredLanes(rank.level)
+  const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize), demand)
+  const freezeRows = await prisma.streakFreeze.groupBy({
+    by: ["laneId"],
+    where: { usedDate: null, lane: { userId } },
+    _count: { _all: true },
+  })
+  const freezesByLane = new Map(freezeRows.map((r) => [r.laneId, r._count._all]))
   const hasStarted = Boolean(prize?.seasonStart)
 
   const lanes = await prisma.lane.findMany({
@@ -61,6 +73,17 @@ export default async function DashboardPage() {
       </div>
 
       <PlayerAvatarCard defeats={defeats} />
+
+      {hasStarted && activeLaneCount < demand && (
+        <Link
+          href="/lanes"
+          data-testid="lane-hunger"
+          className="block rounded-lg border border-purple-500/40 bg-purple-500/10 p-3 text-sm text-purple-200"
+        >
+          Your {rank.name.charAt(0).toUpperCase() + rank.name.slice(1)} hungers
+          for lane number {activeLaneCount + 1} — add one to feed it →
+        </Link>
+      )}
 
       <h1 className="text-2xl font-bold">Today</h1>
       <p className="mt-1 text-sm text-zinc-500">Your daily check-in. Show up for each lane — effort and consistency are the only score, and rest days count too.</p>
@@ -94,7 +117,14 @@ export default async function DashboardPage() {
                 await deleteCheckIn(laneId, date)
               }}
             />
-            <WeeklyProgress hits={weeklyHits} target={lane.targetPerWeek} />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <WeeklyProgress hits={weeklyHits} target={lane.targetPerWeek} />
+              </div>
+              {(freezesByLane.get(lane.id) ?? 0) > 0 && (
+                <FreezeBadge availableFreezes={freezesByLane.get(lane.id) ?? 0} />
+              )}
+            </div>
           </div>
         )
       })}

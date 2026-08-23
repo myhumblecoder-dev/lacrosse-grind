@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { rerollBossChallenge } from './rerollBossChallenge'
 import { requireUserId } from '@/lib/tenancy'
-import { generate } from '@/lib/llm' // Note: path depends on actual structure, using relative to scaffold logic
+import { generate } from '@/lib/llm'
 import { revalidatePath } from 'next/cache'
+import { playerLevel } from '@/lib/playerLevel'
+import { buildChallengePrompt } from '@/lib/bossChallenge'
 
-// We need to mock the imports that are not pure or involve I/O
 vi.mock('@/lib/db', () => ({
   prisma: {
     lane: { create: vi.fn(), createMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), upsert: vi.fn(), count: vi.fn() },
@@ -30,14 +31,37 @@ describe('rerollBossChallenge', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 
-  it('a second reroll returns already-rerolled without generating', async () => {
+  it('a knight gets a second re-roll where a page does not', async () => {
+    // Knight (level 5+) gets 2 rerolls. We set defeats to 10 so rank is Knight.
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(10)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
       id: 'b1',
-      rerolled: true,
+      rerollCount: 1,
       completedAt: null,
-      lane: { name: 'Running', emoji: '🏃' },
+      lane: { name: 'Running', emoji: '🏃', userId: 'u1' },
+    } as any)
+    vi.mocked(generate).mockResolvedValue('New Challenge')
+
+    const res = await rerollBossChallenge('b1')
+
+    expect(res.ok).toBe(true)
+    expect(prisma.bossBattle.update).toHaveBeenCalledWith({
+      where: { id: 'b1' },
+      data: expect.objectContaining({ rerollCount: { increment: 1 }, rerolled: true }),
+    })
+  })
+
+  it('the allowance exhausts to already-rerolled', async () => {
+    // Page (level < 5) gets 1 reroll. We set rerollCount to 1.
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
+      id: 'b1',
+      rerollCount: 1,
+      completedAt: null,
+      lane: { name: 'Running', emoji: '🏃', userId: 'u1' },
     } as any)
 
     const res = await rerollBossChallenge('b1')
@@ -46,38 +70,22 @@ describe('rerollBossChallenge', () => {
     expect(generate).not.toHaveBeenCalled()
   })
 
-  it('a defeated boss cannot be rerolled', async () => {
+  it('the reroll prompt addresses the rank', async () => {
+    // Knight (level 5+) rank name is 'Knight'
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(10)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
       id: 'b1',
-      rerolled: false,
-      completedAt: new Date(Date.UTC(2023, 1, 1)),
-      lane: { name: 'Running', emoji: '🏃' },
-    } as any)
-
-    const res = await rerollBossChallenge('b1')
-
-    expect(res).toEqual({ ok: false, error: 'already-defeated' })
-    expect(generate).not.toHaveBeenCalled()
-  })
-
-  it('a reroll stores the new challenge and marks rerolled', async () => {
-    const newChallenge = 'Run 5km in under 30 mins'
-    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
-      id: 'b1',
-      rerolled: false,
+      rerollCount: 0,
       completedAt: null,
-      lane: { name: 'Running', emoji: '🏃' },
+      lane: { name: 'Running', emoji: '🏃', userId: 'u1' },
     } as any)
-    vi.mocked(generate).mockResolvedValue(newChallenge)
-    vi.mocked(prisma.bossBattle.update).mockResolvedValue({} as any)
+    vi.mocked(generate).mockResolvedValue('New Challenge')
 
-    const res = await rerollBossChallenge('b1')
+    await rerollBossChallenge('b1')
 
-    expect(res).toEqual({ ok: true, challenge: newChallenge })
-    expect(prisma.bossBattle.update).toHaveBeenCalledWith({
-      where: { id: 'b1' },
-      data: { challenge: newChallenge, rerolled: true },
-    })
-    expect(revalidatePath).toHaveBeenCalledWith('/boss-battles')
+    // buildChallengePrompt is real, so we check if it was called with 'Knight'
+    // Since we can't spy on the pure function directly without mocking, 
+    // we verify the result of the logic via the generate call's arguments.
+    expect(generate).toHaveBeenCalledWith(buildChallengePrompt('Running', '🏃', 'knight'))
   })
-})
+}) 

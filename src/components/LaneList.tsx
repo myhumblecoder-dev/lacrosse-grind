@@ -24,6 +24,7 @@ interface LaneListProps {
   setActive: (id: string, isActive: boolean) => Promise<unknown>
   deleteLane: (id: string) => Promise<unknown>
   onSwapLane: (outLaneId: string, inLaneId?: string) => Promise<unknown>
+  requiredLanes?: number
   swapState: { mustPickReplacement: boolean; canRetire: boolean; blocked: boolean }
   inactiveLanes: { id: string; name: string; emoji: string }[]
 }
@@ -50,6 +51,7 @@ export default function LaneList({
   onSwapLane,
   swapState,
   inactiveLanes,
+  requiredLanes,
 }: LaneListProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState({ name: "", emoji: "", targetPerWeek: 5 })
@@ -79,11 +81,12 @@ export default function LaneList({
   }
 
   const activeCount = lanes.filter((l) => l.isActive).length
+  const displayRequired = requiredLanes ?? LANES_REQUIRED
 
   return (
     <>
       <div data-testid="lane-count" className="mb-4 text-sm font-medium text-zinc-400">
-        {activeCount} of {LANES_REQUIRED} lanes active
+        {activeCount} of {displayRequired} lanes active
       </div>
       <ol className="w-full space-y-3">
         {lanes.map((lane) => (

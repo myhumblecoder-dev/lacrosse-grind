@@ -18,13 +18,24 @@ vi.mock('@/lib/db', () => ({
   prisma: {
     lane: {
       findMany: vi.fn(),
+      count: vi.fn(),
+    },
+    bossBattle: {
+      count: vi.fn(),
+    },
+    prize: {
+      findUnique: vi.fn(),
     },
   },
 }))
 
 describe('Page', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(prisma.lane.count).mockResolvedValue(3)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(requireUserId).mockResolvedValue('u1')
   })
 
