@@ -25,6 +25,18 @@ const actions = () => ({
 describe('LaneList', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('a threaded requirement shows in the header', async () => {
+    render(<LaneList lanes={LANES} {...actions()} requiredLanes={5} />)
+    const header = screen.getByTestId('lane-count')
+    expect(header).toHaveTextContent('2 of 5 lanes active')
+  })
+
+  it('no prop keeps today\'s header', async () => {
+    render(<LaneList lanes={LANES} {...actions()} />)
+    const header = screen.getByTestId('lane-count')
+    expect(header).toHaveTextContent(`2 of ${LANES_REQUIRED} lanes active`)
+  })
+
   it('the header counts only active lanes', async () => {
     const activeCount = LANES.filter(l => l.isActive).length
     render(<LaneList lanes={LANES} {...actions()} />)
