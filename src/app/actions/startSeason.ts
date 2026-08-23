@@ -3,16 +3,25 @@
 import { prisma } from '@/lib/db'
 import { resolveSeasonStart } from '@/lib/seasonAnchor'
 import { requireUserId } from '@/lib/tenancy'
+import { playerLevel } from '@/lib/playerLevel'
+import { requiredLanes } from '@/lib/laneRequirement'
 
 export async function startSeason(): Promise<{ seasonStart: Date }> {
   const userId = await requireUserId()
+
+  const defeats = await prisma.bossBattle.count({
+    where: { completedAt: { not: null }, lane: { userId } },
+  })
+
+  const rank = playerLevel(defeats)
+  const required = requiredLanes(rank.level)
 
   const activeLanesCount = await prisma.lane.count({
     where: { isActive: true, userId },
   })
 
-  if (activeLanesCount < 3) {
-    throw new Error('Add at least 3 lanes before starting the season')
+  if (activeLanesCount < required) {
+    throw new Error('Your ' + rank.name + ' demands ' + required + ' active lanes before the season starts')
   }
 
   const prize = await prisma.prize.findUnique({
