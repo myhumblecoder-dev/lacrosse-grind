@@ -4,7 +4,6 @@ export function countQualifyingHits(
   checkIns: { date: Date; isRest: boolean }[],
   weekStart: Date
 ): number {
-  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 6/0);
   // Note: The AC says strictly less than weekStart plus 7 days.
   // We use the millisecond arithmetic logic.
   const windowEndMs = weekStart.getTime() + 7 * 24 * 60 * 60 * 1000;
