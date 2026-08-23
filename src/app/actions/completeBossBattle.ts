@@ -10,6 +10,7 @@ export async function completeBossBattle(battleId: string): Promise<{
   coachNote: string | null;
   defeats: number;
   leveledUp: boolean;
+  freezeAwarded: boolean;
   newLevel: number;
   levelName: string;
 } | {
@@ -54,6 +55,14 @@ export async function completeBossBattle(battleId: string): Promise<{
   const now = playerLevel(defeats);
   const prev = playerLevel(defeats - 1);
   const leveledUp = now.level > prev.level;
+  const freezeAwarded = leveledUp;
+
+  if (leveledUp) {
+    await prisma.streakFreeze.create({
+      data: { laneId: battle.laneId }
+    });
+  }
+
   const newLevel = now.level;
   const levelName = now.name;
 
@@ -88,6 +97,7 @@ export async function completeBossBattle(battleId: string): Promise<{
     coachNote,
     defeats,
     leveledUp,
+    freezeAwarded: leveledUp,
     newLevel,
     levelName
   };

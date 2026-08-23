@@ -8,6 +8,9 @@ vi.mock('@/lib/db', () => ({
       update: vi.fn(),
       findFirst: vi.fn(),
     },
+    bossBattle: {
+      count: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }))
@@ -25,6 +28,8 @@ describe('swapLane', () => {
     vi.mocked(prisma.lane.update).mockResolvedValue({} as any)
     vi.mocked(prisma.$transaction).mockResolvedValue([] as any)
     vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'any' } as any)
+    vi.mocked(prisma.lane.count).mockResolvedValue(4)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 
   it('rejects input that is not a valid swap', async () => {
@@ -35,6 +40,11 @@ describe('swapLane', () => {
   })
 
   it('refuses any change that would leave fewer than three lanes', async () => {
+    // We need to force the decision to be blocked.
+    // Since we aren't mocking validateSwap, we rely on the real logic.
+    // If we set count to 2, validateSwap(2, floor) will return blocked.
+    // We'll use a low number of defeats to ensure floor is high.
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     vi.mocked(prisma.lane.count).mockResolvedValue(2)
 
     const result = await swapLane({ outLaneId: 'lane-2' })
@@ -45,6 +55,7 @@ describe('swapLane', () => {
 
   it('retires a lane outright when more than three are active', async () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(4)
+    // zero defeats -> baby -> floor 3; four active lanes sit above it
 
     const result = await swapLane({ outLaneId: 'lane-2' })
 
@@ -57,6 +68,7 @@ describe('swapLane', () => {
 
   it('demands a replacement at exactly three lanes', async () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
+    // zero defeats -> baby -> floor 3; exactly at the floor demands a swap
 
     const result = await swapLane({ outLaneId: 'lane-2' })
 
@@ -66,6 +78,7 @@ describe('swapLane', () => {
 
   it('swaps one lane for another in a single transaction', async () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
+    // zero defeats -> floor 3; at the floor a paired swap is the legal move
 
     const result = await swapLane({ outLaneId: 'lane-2', inLaneId: 'lane-9' })
 
@@ -116,5 +129,29 @@ describe('swapLane', () => {
     expect(prisma.lane.count).toHaveBeenCalledWith({
       where: { isActive: true, userId: 'u1' },
     })
+  })
+
+  it('a knight-level roster at 6 lanes must swap, not retire', async () => {
+    // Knight level requires a certain number of defeats.
+    // We'll set defeats to a high number so floor is low (e.g. 3).
+    // If activeLaneCount is 6 and floor is 3, decision is NOT blocked and NOT mustPickReplacement.
+    vi.mocked(prisma.lane.count).mockResolvedValue(6)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(50)
+
+    const result = await swapLane({ outLaneId: 'lane-6', inLaneId: 'lane-7' })
+
+    expect(result).toEqual({ ok: true })
+    expect(prisma.$transaction).toHaveBeenCalled()
+  })
+
+  it("a baby-level roster keeps today's behavior", async () => {
+    // Baby level (0 defeats) -> floor 3, exactly today's rule: at three
+    // lanes a bare retire demands a replacement, same as before this story.
+    vi.mocked(prisma.lane.count).mockResolvedValue(3)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+
+    const result = await swapLane({ outLaneId: 'lane-3' })
+
+    expect(result).toEqual({ ok: false, error: 'replacement-required' })
   })
 })

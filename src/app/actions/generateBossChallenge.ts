@@ -4,6 +4,7 @@ import { generate } from "@/lib/llm";
 import { buildChallengePrompt } from "@/lib/bossChallenge";
 import { coachCapExceeded } from "@/lib/llmCap";
 import { getTrainingDay } from "@/lib/trainingDay";
+import { playerLevel } from "@/lib/playerLevel";
 import { revalidatePath } from "next/cache";
 
 export async function generateBossChallenge(laneId: string, weekStarting: Date): Promise<{ ok: true; challenge: string } | { ok: false; error: string }> {
@@ -25,6 +26,12 @@ export async function generateBossChallenge(laneId: string, weekStarting: Date):
     return { ok: true, challenge: existing.challenge };
   }
 
+  const defeats = await prisma.bossBattle.count({
+    where: { completedAt: { not: null }, lane: { userId } }
+  });
+
+  const rank = playerLevel(defeats);
+
   const todayStart = getTrainingDay(new Date());
   const todayCount = await prisma.bossBattle.count({
     where: {
@@ -37,7 +44,7 @@ export async function generateBossChallenge(laneId: string, weekStarting: Date):
     return { ok: false, error: 'coach-limit' };
   }
 
-  const challenge = await generate(buildChallengePrompt(lane.name, lane.emoji));
+  const challenge = await generate(buildChallengePrompt(lane.name, lane.emoji, rank.name));
 
   await prisma.bossBattle.upsert({
     where: { laneId_weekStarting: { laneId, weekStarting } },

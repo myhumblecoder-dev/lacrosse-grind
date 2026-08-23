@@ -16,6 +16,7 @@ vi.mock('@/lib/db', () => ({
     },
     bossBattle: {
       findMany: vi.fn(),
+      count: vi.fn(),
     },
   },
 }))
@@ -38,6 +39,7 @@ describe('Page', () => {
     // (i.e. the second, inactive-lanes call) resolves empty. A Once here
     // would be consumed FIFO by the FIRST (active) call instead.
     vi.mocked(db.lane.findMany).mockResolvedValue([])
+    vi.mocked(db.bossBattle.count).mockResolvedValue(0)
   })
 
   it('both lane queries are scoped to the signed-in user', async () => {
@@ -240,7 +242,7 @@ describe('Page', () => {
           { date: new Date(thisWeekStart.getTime() + 3600000), laneId: 'l1', isRest: false },
           { date: new Date(thisWeekStart.getTime() + 90000000), laneId: 'l1', isRest: false },
         ],
-        bossBattles: [{ id: 'b1', weekStarting: thisWeekStart, challenge: '3 sets of 5 burpees', rerolled: false, completedAt: null, coachNote: null }],
+        bossBattles: [{ id: 'b1', weekStarting: thisWeekStart, challenge: '3 sets of 5 burpees', rerollCount: 0, completedAt: null, coachNote: null }],
       },
     ] as never)
 
@@ -259,7 +261,7 @@ describe('Page', () => {
       {
         id: 'l1', name: 'Pushups', emoji: '💪', targetPerWeek: 1, isActive: true, sortOrder: 1,
         checkIns: [{ date: new Date(thisWeekStart.getTime() + 3600000), laneId: 'l1', isRest: false }],
-        bossBattles: [{ id: 'b1', weekStarting: thisWeekStart, challenge: '3 sets of 5 burpees', rerolled: true, completedAt: new Date(), coachNote: 'Burpees fear you now.' }],
+        bossBattles: [{ id: 'b1', weekStarting: thisWeekStart, challenge: '3 sets of 5 burpees', rerollCount: 1, completedAt: new Date(), coachNote: 'Burpees fear you now.' }],
       },
     ] as never)
 

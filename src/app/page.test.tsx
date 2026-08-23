@@ -37,6 +37,9 @@ vi.mock('@/lib/db', () => ({
     bossBattle: {
       count: vi.fn(),
     },
+    streakFreeze: {
+      groupBy: vi.fn(),
+    },
   },
 }))
 
@@ -62,6 +65,8 @@ describe('Page', () => {
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
     vi.mocked(prisma.lane.count).mockResolvedValue(0)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+    vi.mocked(prisma.streakFreeze.groupBy).mockResolvedValue([] as never)
   })
 
   it('every query is scoped to the signed-in user', async () => {
