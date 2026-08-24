@@ -90,7 +90,33 @@ describe('swapLane', () => {
     })
     expect(prisma.lane.update).toHaveBeenCalledWith({
       where: { id: 'lane-9' },
-      data: { isActive: true },
+      data: { isActive: true, startsOn: expect.any(Date) },
+    })
+  })
+
+  it('the lane swapped in starts on the coming Monday, not mid-week', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-23T18:00:00.000Z')) // Sunday
+    vi.mocked(prisma.lane.count).mockResolvedValue(3)
+
+    await swapLane({ outLaneId: 'lane-2', inLaneId: 'lane-9' })
+
+    const inCall = vi
+      .mocked(prisma.lane.update)
+      .mock.calls.find((c) => c[0].where.id === 'lane-9')!
+    const data = inCall[0].data as { startsOn: Date }
+    expect(data.startsOn.toISOString()).toBe('2026-08-24T00:00:00.000Z')
+    vi.useRealTimers()
+  })
+
+  it('retiring a lane leaves its start stamp alone', async () => {
+    vi.mocked(prisma.lane.count).mockResolvedValue(4)
+
+    await swapLane({ outLaneId: 'lane-2' })
+
+    expect(prisma.lane.update).toHaveBeenCalledWith({
+      where: { id: 'lane-2' },
+      data: { isActive: false },
     })
   })
 

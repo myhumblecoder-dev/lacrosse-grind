@@ -11,6 +11,8 @@ import { swapLane } from "@/app/actions/swapLane"
 import { validateSwap } from "@/lib/validateSwap"
 import { playerLevel } from "@/lib/playerLevel"
 import { requiredLanes } from "@/lib/laneRequirement"
+import { isLanePending } from "@/lib/lanePending"
+import { effectiveTarget } from "@/lib/effectiveTarget"
 
 export const dynamic = "force-dynamic"
 
@@ -70,6 +72,7 @@ export default async function BossBattlesPage() {
           weekStarting: { in: [lastWeekStart, thisWeekStart] },
         },
       },
+      targetChanges: true,
     },
   })
 
@@ -88,13 +91,24 @@ export default async function BossBattlesPage() {
   // A last-week boss stays fightable for one grace week when its target was
   // hit but the boss was never DEFEATED.
   const graceLanes = lanes.filter((lane) => {
+    // Tested against LAST week, the week being judged — not against this one.
+    // A lane that only started this Monday was not running then, and a
+    // swapped-in lane can still carry check-ins from an earlier stint that
+    // would otherwise wake a boss for a week it sat retired.
+    if (isLanePending(lane.startsOn, lastWeekStart)) return false
     const lastWeekHits = lane.checkIns.filter(
       (c) => c.date >= lastWeekStart && c.date < thisWeekStart
     ).length
     const lastWeekBattle = lane.bossBattles.find(
       (b) => b.weekStarting.getTime() === lastWeekStart.getTime()
     )
-    return lastWeekHits >= lane.targetPerWeek && !lastWeekBattle?.completedAt
+    // Judged by last week's target, which a mid-week edit may since have moved.
+    const lastWeekTarget = effectiveTarget(
+      lane.targetChanges,
+      lastWeekStart,
+      lane.targetPerWeek
+    )
+    return lastWeekHits >= lastWeekTarget && !lastWeekBattle?.completedAt
   })
 
   return (
@@ -113,8 +127,14 @@ export default async function BossBattlesPage() {
       )}
 
       {lanes.map((lane) => {
+        const pending = isLanePending(lane.startsOn, thisWeekStart)
         const currentHits = lane.checkIns.filter((c) => c.date >= thisWeekStart).length
-        const hitTarget = currentHits >= lane.targetPerWeek
+        const target = effectiveTarget(
+          lane.targetChanges,
+          thisWeekStart,
+          lane.targetPerWeek
+        )
+        const hitTarget = currentHits >= target
         const battle = lane.bossBattles.find(
           (b) => b.weekStarting.getTime() === thisWeekStart.getTime()
         )
@@ -125,12 +145,22 @@ export default async function BossBattlesPage() {
               <h2 className="text-lg font-semibold">
                 {lane.emoji} {lane.name}
               </h2>
-              <span className="text-sm text-zinc-600">
-                {currentHits} / {lane.targetPerWeek} days
-              </span>
+              {/* A lane that has not started owes no tally — printing "0 / 5
+                  days" for a week it was not in is the same deficit the
+                  dashboard refuses to show. */}
+              {!pending && (
+                <span className="text-sm text-zinc-600">
+                  {currentHits} / {target} days
+                </span>
+              )}
             </div>
 
-            {hitTarget ? (
+            {pending ? (
+              <p className="text-sm text-purple-300" data-testid="battle-pending">
+                ⏳ New lane — its first boss wakes{" "}
+                {formatWeekLabel(lane.startsOn!)}.
+              </p>
+            ) : hitTarget ? (
               <div className="space-y-3">
                 <div className="text-sm font-medium text-green-600">
                   ✅ Target hit

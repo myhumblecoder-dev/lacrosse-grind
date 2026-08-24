@@ -6,6 +6,9 @@ import { getTrainingDay } from "@/lib/trainingDay"
 import { createCheckIn } from "@/app/actions/createCheckIn"
 import { deleteCheckIn } from "@/app/actions/deleteCheckIn"
 import CheckInCard from "@/components/CheckInCard"
+import LanePendingCard from "@/components/LanePendingCard"
+import { isLanePending } from "@/lib/lanePending"
+import { effectiveTarget } from "@/lib/effectiveTarget"
 import { WeeklyProgress } from "@/components/WeeklyProgress"
 import SeasonStartButton from "@/components/SeasonStartButton"
 import SeasonResetButton from "@/components/SeasonResetButton"
@@ -44,13 +47,19 @@ export default async function DashboardPage() {
   const freezesByLane = new Map(freezeRows.map((r) => [r.laneId, r._count._all]))
   const hasStarted = Boolean(prize?.seasonStart)
 
-  const lanes = await prisma.lane.findMany({
+  const allLanes = await prisma.lane.findMany({
     where: { isActive: true, userId },
     orderBy: { sortOrder: "asc" },
     include: {
       checkIns: { where: { date: { gte: weekStart } }, orderBy: { date: "asc" } },
+      targetChanges: true,
     },
   })
+
+  // Lanes that haven't reached their first week sort below the live ones, so
+  // the set he can actually train today reads first.
+  const lanes = allLanes.filter((l) => !isLanePending(l.startsOn, weekStart))
+  const pendingLanes = allLanes.filter((l) => isLanePending(l.startsOn, weekStart))
 
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
@@ -87,7 +96,7 @@ export default async function DashboardPage() {
 
       <h1 className="text-2xl font-bold">Today</h1>
       <p className="mt-1 text-sm text-zinc-500">Your daily check-in. Show up for each lane — effort and consistency are the only score, and rest days count too.</p>
-      {lanes.length === 0 && (
+      {allLanes.length === 0 && (
         <p className="text-zinc-500">No lanes yet — add one on the Lanes page.</p>
       )}
       {lanes.map((lane) => {
@@ -119,7 +128,14 @@ export default async function DashboardPage() {
             />
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1">
-                <WeeklyProgress hits={weeklyHits} target={lane.targetPerWeek} />
+                <WeeklyProgress
+                  hits={weeklyHits}
+                  target={effectiveTarget(
+                    lane.targetChanges,
+                    weekStart,
+                    lane.targetPerWeek
+                  )}
+                />
               </div>
               {(freezesByLane.get(lane.id) ?? 0) > 0 && (
                 <FreezeBadge availableFreezes={freezesByLane.get(lane.id) ?? 0} />
@@ -128,6 +144,15 @@ export default async function DashboardPage() {
           </div>
         )
       })}
+
+      {pendingLanes.map((lane) => (
+        <LanePendingCard
+          key={lane.id}
+          lane={{ name: lane.name, emoji: lane.emoji }}
+          startsOn={lane.startsOn!}
+        />
+      ))}
+
       {hasStarted && <SeasonResetButton />}
     </main>
   )

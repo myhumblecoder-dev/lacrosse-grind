@@ -9,24 +9,46 @@ datasource db {
 
 // Lane — a skill domain Eddie trains (e.g. "Stick Skills", "Shooting", "Conditioning")
 model Lane {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   // Nullable during the two-phase rollout; tightened to required once the
   // claim script has bound the pre-auth rows to their owner.
   userId        String?
-  user          User?    @relation(fields: [userId], references: [id])
+  user          User?     @relation(fields: [userId], references: [id])
   name          String
-  emoji         String   @default("🥍")
-  targetPerWeek Int      @default(5) // days/week target frequency
-  isActive      Boolean  @default(true)
-  sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
+  emoji         String    @default("🥍")
+  targetPerWeek Int       @default(5) // days/week target frequency
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  // The Monday this lane begins counting. A lane added or activated mid-week
+  // starts on the NEXT Monday, so it is never scored against a partial week it
+  // could not have hit. NULL = pre-existing lane, in effect since the season began.
+  startsOn      DateTime?
+  createdAt     DateTime  @default(now())
 
   checkIns      CheckIn[]
   bossBattles   BossBattle[]
   streakFreezes StreakFreeze[]
+  targetChanges LaneTarget[]
 
   @@index([isActive])
   @@index([userId, isActive])
+}
+
+// LaneTarget — a weekly target that takes effect from a given Monday.
+// Targets are effective-dated instead of overwritten because the season grid
+// re-scores every finished week on each render: a single mutable number would
+// let a change made today un-qualify weeks already earned. `Lane.targetPerWeek`
+// remains the original target and the fallback for weeks before any change.
+model LaneTarget {
+  id            String   @id @default(cuid())
+  laneId        String
+  lane          Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
+  target        Int
+  effectiveFrom DateTime // UTC midnight of the Monday it takes effect
+  createdAt     DateTime @default(now())
+
+  @@unique([laneId, effectiveFrom])
+  @@index([laneId, effectiveFrom])
 }
 
 // CheckIn — Eddie's daily self-report for a lane session
@@ -46,20 +68,20 @@ model CheckIn {
 
 // BossBattle — every 2-week skill test for a lane
 model BossBattle {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   laneId       String
-  lane         Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
+  lane         Lane      @relation(fields: [laneId], references: [id], onDelete: Cascade)
   weekStarting DateTime // UTC midnight of the Monday starting the 2-week block
   // The boss IS a generated real-world challenge derived from the lane
   // ("3 sets of 5 pushups" spawns "3 sets of 5 burpees"). Defeated when
   // completedAt is set — by doing it, not describing it.
   challenge    String?
   completedAt  DateTime?
-  rerolled     Boolean  @default(false) // legacy boolean (drop after rerollCount migration)
-  rerollCount  Int      @default(0) // re-rolls used; allowance scales with rank (knight+ gets 2)
+  rerolled     Boolean   @default(false) // legacy boolean (drop after rerollCount migration)
+  rerollCount  Int       @default(0) // re-rolls used; allowance scales with rank (knight+ gets 2)
   selfReport   String? // legacy free-text (pre-challenge battles)
   coachNote    String? // AI hype note, written at victory
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   @@unique([laneId, weekStarting])
   @@index([weekStarting])
@@ -91,6 +113,7 @@ model Prize {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
+
 // ---- Auth.js (next-auth v5 Prisma adapter) --------------------------------
 
 model User {
@@ -102,10 +125,10 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts    Account[]
-  sessions    Session[]
-  lanes       Lane[]
-  prize       Prize?
+  accounts Account[]
+  sessions Session[]
+  lanes    Lane[]
+  prize    Prize?
 }
 
 model Account {

@@ -17,6 +17,7 @@ export default async function HistoryPage() {
     ],
     include: {
       bossBattles: true,
+      targetChanges: true,
       checkIns: {
         ...(prize?.seasonStart ? { where: { date: { gte: prize.seasonStart } } } : {}),
         orderBy: { date: "asc" },

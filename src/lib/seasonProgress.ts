@@ -20,6 +20,7 @@ export function getSeasonProgress(
       date: Date;
       isRest: boolean;
     }>;
+    targetChanges?: Array<{ target: number; effectiveFrom: Date }>;
   }>,
   today: Date,
   seasonStart: Date | null

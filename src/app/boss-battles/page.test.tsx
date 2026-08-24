@@ -75,6 +75,69 @@ describe('Page', () => {
     }))
   })
 
+  it('a lane that only started this Monday wakes no boss for last week', async () => {
+    // The swap case: a lane traded back in mid-week starts the coming Monday,
+    // and check-ins left over from an earlier stint must not wake a grace
+    // boss for a week it spent retired. `startsOn` equals this week's Monday,
+    // so a guard tested against THIS week would let it through.
+    const trainingDay = getTrainingDay(new Date())
+    const thisWeekStart = getWeekStart(trainingDay)
+    const lastWeekStart = getLastCompletedWeekStart(trainingDay)
+
+    const lane = {
+      id: 'l1',
+      name: 'Strength',
+      emoji: '💪',
+      targetPerWeek: 2,
+      isActive: true,
+      sortOrder: 1,
+      startsOn: thisWeekStart,
+      checkIns: [
+        { date: new Date(lastWeekStart.getTime() + 86400000), laneId: 'l1', isRest: false },
+        { date: new Date(lastWeekStart.getTime() + 172800000), laneId: 'l1', isRest: false },
+      ],
+      bossBattles: [],
+    } as any
+
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([lane])
+
+    const PageComponent = await Page()
+    render(PageComponent)
+
+    expect(screen.queryByText(/Last week's unfought boss/)).not.toBeInTheDocument()
+  })
+
+  it('a lane running last week still gets its grace boss', async () => {
+    // The control for the test above: same data, but the lane started before
+    // last week, so the guard must not swallow a boss it genuinely earned.
+    const trainingDay = getTrainingDay(new Date())
+    const lastWeekStart = getLastCompletedWeekStart(trainingDay)
+
+    const lane = {
+      id: 'l1',
+      name: 'Strength',
+      emoji: '💪',
+      targetPerWeek: 2,
+      isActive: true,
+      sortOrder: 1,
+      startsOn: new Date(lastWeekStart.getTime() - 7 * 86400000),
+      checkIns: [
+        { date: new Date(lastWeekStart.getTime() + 86400000), laneId: 'l1', isRest: false },
+        { date: new Date(lastWeekStart.getTime() + 172800000), laneId: 'l1', isRest: false },
+      ],
+      bossBattles: [],
+    } as any
+
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([lane])
+
+    const PageComponent = await Page()
+    render(PageComponent)
+
+    expect(
+      screen.getByText(`Last week's unfought boss — ${formatWeekLabel(lastWeekStart)}`)
+    ).toBeInTheDocument()
+  })
+
   it('an unfought last-week victory stays fightable', async () => {
     const trainingDay = getTrainingDay(new Date())
     const thisWeekStart = getWeekStart(trainingDay)
