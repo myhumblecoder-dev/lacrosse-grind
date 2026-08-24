@@ -18,6 +18,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Lacrosse Grind",
   description: "Daily training companion — effort over outcome.",
+  // Belt and braces with robots.txt. A URL linked from elsewhere — the
+  // marketing page links straight here — can be listed without ever being
+  // crawled, so the disallow alone would not keep it out of results.
+  robots: { index: false, follow: false },
 };
 
 export default async function RootLayout({
