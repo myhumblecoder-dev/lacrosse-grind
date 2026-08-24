@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Page from './page'
 import { LANES_REQUIRED } from '@/lib/season'
 import { prisma } from '@/lib/db'
-import { requireUserId } from '@/lib/tenancy'
+import { getViewer } from '@/lib/viewer'
 
 // Mocking the components as requested by the AC
 vi.mock('@/components/SeasonStartButton', () => ({
@@ -43,9 +43,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/tenancy', () => ({
-  requireUserId: vi.fn(),
-}))
+vi.mock('@/lib/viewer', () => ({ getViewer: vi.fn() }))
 
 // Mocking next/font/google's loader only exists inside the Next build; under vitest
 // `Geist(...)` is not a function and the suite dies at module load.
@@ -60,7 +58,7 @@ vi.mock('next/font/google', () => new Proxy({}, {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
     // Default mock for lanes to prevent crashes in the loop
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
     vi.mocked(prisma.lane.count).mockResolvedValue(0)
@@ -71,7 +69,7 @@ describe('Page', () => {
 
   it('every query is scoped to the signed-in user', async () => {
     const userId = 'u1'
-    vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId })
     
     // Setup mocks to verify the 'where' clause
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
@@ -197,7 +195,7 @@ describe('Page — the freeze offer', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date(TODAY + 'T18:00:00.000Z'))
-    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
@@ -308,7 +306,7 @@ describe('Page — the bar counts what the season counts', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date(TODAY + 'T18:00:00.000Z'))
-    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)

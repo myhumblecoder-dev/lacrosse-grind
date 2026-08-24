@@ -1,15 +1,25 @@
 import { prisma } from "@/lib/db"
-import { requireUserId } from "@/lib/tenancy"
+import { getViewer, type Viewer } from "@/lib/viewer"
+import { getDemoSeason } from "@/lib/demoSeason"
+import DemoBanner from "@/components/DemoBanner"
 import { buildWeekRecaps } from "@/lib/weekRecap"
 import { formatWeekLabel, getWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
 
 export const dynamic = "force-dynamic"
 
-export default async function HistoryPage() {
-  const userId = await requireUserId()
+/** Every lane the season has seen, from the database or from the demo. */
+async function loadHistory(viewer: Viewer, today: Date) {
+  if (viewer.kind === "demo") {
+    const demo = getDemoSeason(today)
+    return [...demo.lanes].sort(
+      (a, b) => Number(b.isActive) - Number(a.isActive) || a.sortOrder - b.sortOrder
+    )
+  }
+
+  const { userId } = viewer
   const prize = await prisma.prize.findUnique({ where: { userId } })
-  const lanes = await prisma.lane.findMany({
+  return prisma.lane.findMany({
     where: { userId },
     orderBy: [
       { isActive: "desc" },
@@ -24,12 +34,19 @@ export default async function HistoryPage() {
       },
     },
   })
+}
+
+export default async function HistoryPage() {
+  const viewer = await getViewer()
+  const today = getTrainingDay(new Date())
+  const lanes = await loadHistory(viewer, today)
 
   const recaps = buildWeekRecaps(lanes)
-  const thisWeekStart = getWeekStart(getTrainingDay(new Date()))
+  const thisWeekStart = getWeekStart(today)
 
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
+      {viewer.kind === "demo" && <DemoBanner />}
       <h1 className="text-2xl font-bold">History</h1>
       <p className="mt-1 text-sm text-zinc-500">Your season, week by week — green for a session, blue for a rest day, purple for the day you beat a boss. Only days you showed up are here.</p>
       {recaps.map((recap) => (

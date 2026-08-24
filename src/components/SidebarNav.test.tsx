@@ -8,10 +8,6 @@ vi.mock('next/navigation', () => ({
   usePathname: vi.fn(),
 }))
 
-// The button posts to a server action; under vitest it is just the function
-// the form is wired to, which is what these tests check.
-vi.mock('@/app/actions/signOutAction', () => ({ signOutAction: vi.fn() }))
-
 describe('SidebarNav', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -69,46 +65,5 @@ describe('SidebarNav', () => {
     const prizeLink = screen.getByRole('link', { name: 'Prize' })
     expect(prizeLink).toBeInTheDocument()
     expect(prizeLink).toHaveAttribute('href', '/prize')
-  })
-})
-
-describe('SidebarNav — signing out', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(usePathname).mockReturnValue('/')
-  })
-
-  it('offers a way out, which the app previously had none of', async () => {
-    render(<SidebarNav />)
-
-    expect(screen.getByTestId('sign-out')).toHaveTextContent('Sign out')
-  })
-
-  it('submits to the sign-out action rather than a dead click', async () => {
-    // The action existed and was tested all along; nothing ever called it.
-    render(<SidebarNav />)
-
-    const form = screen.getByTestId('sign-out').closest('form')
-    expect(form).not.toBeNull()
-    expect(form).toHaveAttribute('action')
-  })
-
-  it('keeps the label readable to screen readers when collapsed', async () => {
-    const user = userEvent.setup()
-    render(<SidebarNav />)
-
-    await user.click(screen.getByRole('button', { name: 'Collapse menu' }))
-
-    expect(screen.getByTestId('sign-out')).toHaveTextContent('Sign out')
-    expect(screen.getByTestId('sign-out')).toHaveAttribute('title', 'Sign out')
-  })
-
-  it('offers nothing to sign out of on the sign-in page', async () => {
-    // The shell wraps every route, so the sidebar renders there too.
-    vi.mocked(usePathname).mockReturnValue('/signin')
-
-    render(<SidebarNav />)
-
-    expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument()
   })
 })

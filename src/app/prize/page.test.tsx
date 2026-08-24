@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { formatWeekLabel } from '@/lib/weekUtils'
 import { SEASON_WEEKS } from '@/lib/season'
 import PrizePage from './page'
-import { requireUserId } from '@/lib/tenancy'
+import { getViewer } from '@/lib/viewer'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -16,7 +16,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/viewer', () => ({ getViewer: vi.fn() }))
 
 import { prisma } from '@/lib/db'
 
@@ -34,7 +34,7 @@ const PRIZE = {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
     vi.mocked(prisma.lane.findMany).mockResolvedValue([] as never)
   })
 
