@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { auth, signIn } from "@/auth"
 
@@ -26,6 +27,22 @@ export default async function SignInPage() {
           Continue with Google
         </button>
       </form>
+
+      {/* Said here, where the decision is made. The terms claim accounts
+          belong to an adult; if that is never shown at sign-up it is a claim
+          nobody agreed to. */}
+      <p className="text-xs leading-relaxed text-zinc-500">
+        By continuing you agree to our{" "}
+        <Link href="/terms" className="text-zinc-300 underline">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="text-zinc-300 underline">
+          Privacy Policy
+        </Link>
+        , and confirm you are 18 or over and the parent or guardian responsible
+        for this account.
+      </p>
     </main>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import SidebarNav from '@/components/SidebarNav'
 
@@ -88,6 +89,19 @@ export default function AppShell({ children, account, signedIn = false }: AppShe
         </header>
 
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+
+        {/* Reachable from anywhere, including the demo — someone deciding
+            whether to trust this with a child's record should not have to
+            sign in to read how it is handled. */}
+        <footer className="border-t border-zinc-800/60 px-6 py-4 text-xs text-zinc-600">
+          <Link href="/privacy" className="hover:text-zinc-300">
+            Privacy
+          </Link>
+          <span className="px-2">·</span>
+          <Link href="/terms" className="hover:text-zinc-300">
+            Terms
+          </Link>
+        </footer>
       </div>
     </div>
   )
