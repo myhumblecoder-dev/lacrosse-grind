@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { requireUserId } from "@/lib/tenancy"
 import { computeStreak } from "@/lib/streak"
+import { countQualifyingHits } from "@/lib/qualifyingWeek"
 import { findRepairableGap } from "@/lib/repairableGap"
 import { getWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
@@ -113,9 +114,10 @@ export default async function DashboardPage() {
         const todayCheckIn = lane.checkIns.find(
           (c) => c.date.getTime() === today.getTime()
         )
-        // The query now reaches back past Monday for the streak, so this
-        // week's tally has to be narrowed again here.
-        const weeklyHits = lane.checkIns.filter((c) => c.date >= weekStart).length
+        // Counted the same way the season counts it. Rest days are capped at
+        // REST_CAP_PER_WEEK toward a target, so tallying them raw here showed
+        // a week as hit that the Prize grid then scored as missed.
+        const weeklyHits = countQualifyingHits(lane.checkIns, weekStart)
 
         const history = lane.checkIns.map((c) => ({
           date: c.date,
