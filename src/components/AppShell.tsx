@@ -94,6 +94,10 @@ export default function AppShell({ children, account, signedIn = false }: AppShe
             whether to trust this with a child's record should not have to
             sign in to read how it is handled. */}
         <footer className="border-t border-zinc-800/60 px-6 py-4 text-xs text-zinc-600">
+          <Link href="/about" className="hover:text-zinc-300">
+            About
+          </Link>
+          <span className="px-2">·</span>
           <Link href="/privacy" className="hover:text-zinc-300">
             Privacy
           </Link>
