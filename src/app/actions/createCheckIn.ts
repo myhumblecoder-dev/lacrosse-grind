@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { checkInSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/tenancy";
+import { isWithinCheckInWindow } from "@/lib/checkInWindow";
+import { getTrainingDay } from "@/lib/trainingDay";
 
 export async function createCheckIn(
   input: unknown
@@ -14,6 +16,12 @@ export async function createCheckIn(
   }
 
   const { laneId, date, isRest, note } = parsed.data;
+
+  // checkInSchema accepts any Date, and this action is callable directly
+  // rather than only through the card that always sends today.
+  if (!isWithinCheckInWindow(date, getTrainingDay(new Date()))) {
+    return { ok: false, error: "outside-window" };
+  }
 
   const lane = await prisma.lane.findFirst({
     where: { id: laneId, userId },

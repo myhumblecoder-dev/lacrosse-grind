@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/tenancy";
 import { resolveSeasonStart } from "@/lib/seasonAnchor";
 import { getTrainingDay } from "@/lib/trainingDay";
+import { MAX_LANES_PER_USER } from "@/lib/season";
 
 export async function createLane(
   input: unknown
@@ -12,6 +13,11 @@ export async function createLane(
   const parsed = laneSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "validation" };
+  }
+
+  const owned = await prisma.lane.count({ where: { userId } });
+  if (owned >= MAX_LANES_PER_USER) {
+    return { ok: false, error: "too-many-lanes" };
   }
 
   // A new lane begins on the Monday on or after today, so it always gets a
