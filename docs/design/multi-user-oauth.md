@@ -84,9 +84,16 @@ The inline closures in pages are thin wrappers delegating to these module
 files — the check inside the module covers both exposure paths; no closure
 refactoring needed.
 
-**uploadPrizePhoto (hand-eyes):** drop or harden `fetchRemoteImage`
+**uploadPrizePhoto (hand-eyes):** ~~drop or harden `fetchRemoteImage`
 (https-only, reject private/link-local IPs — simplest is dropping remote
-fetch), and prefix Blob pathnames with `userId`.
+fetch), and prefix Blob pathnames with `userId`.~~ **DONE** — hardened
+rather than dropped, so pasting a shop link still works:
+`src/lib/fetchableUrl.ts` (https-only, no credentials, literal addresses
+judged directly, every resolved address checked) over
+`src/lib/publicAddress.ts`. Redirects are followed by hand and re-checked
+per hop, since the automatic ones were the actual hole. Blob pathnames
+are prefixed with `userId` and the filename is sanitised, or `..` would
+climb straight out of that prefix.
 
 **LLM abuse mitigation (open sign-ups):** pure `src/lib/llmCap.ts` + a
 check in the 3 LLM actions (createBossBattle, createReflection,
