@@ -5,6 +5,7 @@ import type { Prize } from '@prisma/client'
 import { uploadPrizePhoto } from './uploadPrizePhoto'
 import { put, del } from '@vercel/blob'
 import { revalidatePath } from 'next/cache'
+import { resolveHost } from '@/lib/resolveHost'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -35,6 +36,10 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
+// The guard resolves the hostname before fetching. DNS is the one bit of I/O
+// here, so it is steered rather than left to answer for real.
+vi.mock('@/lib/resolveHost', () => ({ resolveHost: vi.fn() }))
+
 const makePrize = (overrides: Partial<Prize> = {}): Prize =>
   ({
     id: '',
@@ -52,6 +57,8 @@ describe('uploadPrizePhoto', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(USER_ID)
+    // Default: hostnames resolve to an ordinary public address.
+    vi.mocked(resolveHost).mockResolvedValue(['93.184.216.34'])
   })
 
   it('the stored prize row is the signed-in user\'s', async () => {
@@ -155,6 +162,7 @@ describe('uploadPrizePhoto', () => {
     const okResponse = (type = 'image/png', size = 1024) =>
       ({
         ok: true,
+        status: 200,
         headers: { get: (h: string) => (h === 'content-type' ? type : null) },
         blob: async () => ({ size }) as Blob,
       }) as unknown as Response
@@ -196,7 +204,9 @@ describe('uploadPrizePhoto', () => {
     })
 
     it('failed fetch returns fetch-failed', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false } as Response))
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: false, status: 500, headers: { get: () => null },
+      } as unknown as Response))
 
       const fd = new FormData()
       fd.append('photoUrl', remoteUrl)
@@ -218,6 +228,97 @@ describe('uploadPrizePhoto', () => {
 
       expect(result).toEqual({ ok: true, url: 'https://blob.test/prize/from-file.png' })
       expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('a redirect into the metadata endpoint is not followed', async () => {
+      // The hole automatic redirects leave: the pasted URL is perfectly
+      // ordinary, and the 302 is where the attack lives.
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 302,
+        headers: { get: (h: string) => (h === 'location' ? 'https://169.254.169.254/latest/meta-data/' : null) },
+      } as unknown as Response)
+      vi.stubGlobal('fetch', fetchMock)
+
+      const fd = new FormData()
+      fd.append('photoUrl', remoteUrl)
+
+      expect(await uploadPrizePhoto(fd)).toEqual({ ok: false, error: 'url-not-allowed' })
+      // The first hop happened; the second never did.
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(put).not.toHaveBeenCalled()
+    })
+
+    it('a redirect to another public image is followed', async () => {
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false, status: 302,
+          headers: { get: (h: string) => (h === 'location' ? 'https://cdn.example/real.png' : null) },
+        } as unknown as Response)
+        .mockResolvedValueOnce(okResponse())
+      vi.stubGlobal('fetch', fetchMock)
+      vi.mocked(put).mockResolvedValue({ url: 'https://blob.test/prize/real.png' } as never)
+      vi.mocked(db.prize.findUnique).mockResolvedValue(makePrize({ photoUrl: null }))
+
+      const fd = new FormData()
+      fd.append('photoUrl', remoteUrl)
+
+      expect(await uploadPrizePhoto(fd)).toEqual({ ok: true, url: 'https://blob.test/prize/real.png' })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('a redirect loop gives up rather than spinning', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false, status: 302,
+        headers: { get: (h: string) => (h === 'location' ? 'https://images.test/again.png' : null) },
+      } as unknown as Response)
+      vi.stubGlobal('fetch', fetchMock)
+
+      const fd = new FormData()
+      fd.append('photoUrl', remoteUrl)
+
+      expect(await uploadPrizePhoto(fd)).toEqual({ ok: false, error: 'fetch-failed' })
+      expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(5)
+    })
+
+    it('a link into the private network never reaches fetch', async () => {
+      vi.mocked(resolveHost).mockResolvedValue(['10.0.0.5'])
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      const fd = new FormData()
+      fd.append('photoUrl', 'https://inside.test/x.png')
+
+      expect(await uploadPrizePhoto(fd)).toEqual({ ok: false, error: 'url-not-allowed' })
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('a traversing filename cannot climb out of the user folder', async () => {
+      // The blob path is `${userId}/${name}`, so the user id is the only thing
+      // keeping one family's photos out of another's.
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse()))
+      vi.mocked(put).mockResolvedValue({ url: 'https://blob.test/x.png' } as never)
+      vi.mocked(db.prize.findUnique).mockResolvedValue(makePrize({ photoUrl: null }))
+
+      const fd = new FormData()
+      fd.append('photoUrl', 'https://images.test/a/..')
+      await uploadPrizePhoto(fd)
+
+      const pathname = vi.mocked(put).mock.calls[0][0] as string
+      expect(pathname.startsWith(`${USER_ID}/`)).toBe(true)
+      expect(pathname).not.toContain('..')
+    })
+
+    it('a traversing upload filename is sanitised too', async () => {
+      vi.mocked(put).mockResolvedValue({ url: 'https://blob.test/x.png' } as never)
+      vi.mocked(db.prize.findUnique).mockResolvedValue(makePrize({ photoUrl: null }))
+
+      const fd = new FormData()
+      fd.append('photo', new File(['bytes'], '../../escape.png', { type: 'image/png' }))
+      await uploadPrizePhoto(fd)
+
+      const pathname = vi.mocked(put).mock.calls[0][0] as string
+      expect(pathname).toBe(`${USER_ID}/escape.png`)
     })
   })
 })
