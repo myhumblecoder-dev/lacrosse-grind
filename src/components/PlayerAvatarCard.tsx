@@ -5,8 +5,10 @@ interface PlayerAvatarCardProps {
   defeats: number;
 }
 
-// How many evolutions the ladder holds, asked of the ladder itself so adding a
-// rank never needs a matching edit here.
+// How many evolutions the ladder holds, asked of the ladder itself so a tenth
+// rank renders here without an edit. The test still pins nine deliberately: a
+// new rank needs new art, so it should fail until someone has decided about
+// that rather than quietly drawing an unlit pip with no monster behind it.
 const EVOLUTIONS = playerLevel(Number.MAX_SAFE_INTEGER).level + 1;
 
 /**
