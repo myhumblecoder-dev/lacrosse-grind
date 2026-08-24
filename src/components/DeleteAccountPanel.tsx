@@ -63,10 +63,18 @@ export default function DeleteAccountPanel({
         onClick={() =>
           startTransition(async () => {
             setError(null)
-            const result = await deleteAccount(typed.trim())
-            // Success redirects, so anything returned here is a refusal.
-            if (result && !result.ok) {
-              setError("That didn't go through — give it another go.")
+            try {
+              const result = await deleteAccount(typed.trim())
+              // Success leaves by redirect, so anything returned is a refusal.
+              if (result && !result.ok) {
+                setError("That didn't go through — give it another go.")
+              }
+            } catch {
+              // React escalates a rejected transition to the nearest error
+              // boundary, so without this the page crashes rather than saying
+              // what went wrong. The redirect on success is thrown too, but
+              // Next handles that before it reaches here.
+              setError("Something went wrong — give it another go.")
             }
           })
         }

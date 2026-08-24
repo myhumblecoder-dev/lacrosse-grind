@@ -1,9 +1,10 @@
 'use server'
 
-import { del } from '@vercel/blob'
+import { del, list } from '@vercel/blob'
 import { prisma } from '@/lib/db'
 import { requireUserId } from '@/lib/tenancy'
 import { signOut } from '@/auth'
+import { redirect } from 'next/navigation'
 import { DELETE_CONFIRMATION } from '@/lib/deleteConfirmation'
 
 /**
@@ -28,24 +29,30 @@ import { DELETE_CONFIRMATION } from '@/lib/deleteConfirmation'
 export async function deleteAccount(
   confirmation: string
 ): Promise<{ ok: false; error: string }> {
+  // Only ever RETURNS on a refusal; success leaves by redirect.
   const userId = await requireUserId()
 
   if (confirmation !== DELETE_CONFIRMATION) {
     return { ok: false, error: 'not-confirmed' }
   }
 
-  const prize = await prisma.prize.findUnique({ where: { userId } })
-  if (prize?.photoUrl) {
-    try {
-      await del(prize.photoUrl)
-    } catch (err) {
-      // Best effort. Refusing to delete the account because a blob store was
-      // briefly unreachable would strand someone who asked to leave.
-      console.error(
-        'Failed to delete prize photo during account deletion:',
-        err instanceof Error ? err.message : err
-      )
+  // The WHOLE prefix, not just the photo the prize currently points at.
+  // `uploadPrizePhoto` deliberately swallows a failed delete when replacing a
+  // picture, so a hiccup there leaves an older image orphaned under the same
+  // prefix — publicly readable, with nothing referring to it. Those are
+  // exactly what this is meant to remove.
+  try {
+    const { blobs } = await list({ prefix: `${userId}/` })
+    if (blobs.length > 0) {
+      await del(blobs.map((b) => b.url))
     }
+  } catch (err) {
+    // Best effort. Refusing to delete the account because a blob store was
+    // briefly unreachable would strand someone who asked to leave.
+    console.error(
+      'Failed to delete stored photos during account deletion:',
+      err instanceof Error ? err.message : err
+    )
   }
 
   await prisma.$transaction([
@@ -54,11 +61,36 @@ export async function deleteAccount(
     prisma.lane.deleteMany({ where: { userId } }),
     prisma.prize.deleteMany({ where: { userId } }),
     prisma.coachCall.deleteMany({ where: { userId } }),
-    // Takes Account and Session with it.
-    prisma.user.delete({ where: { id: userId } }),
+    // deleteMany, not delete: sessions are JWTs, so a cookie on a second
+    // device still resolves to this id after the row is gone. `delete` throws
+    // P2025 on a missing row and would reject the whole transaction, turning
+    // a second attempt into a crash instead of a no-op. Takes Account and
+    // Session with it either way.
+    prisma.user.deleteMany({ where: { id: userId } }),
   ])
 
-  // Throws a redirect, so nothing may follow it.
-  await signOut({ redirectTo: '/' })
-  return { ok: false, error: 'unreachable' }
+  // The account is gone by this point. Whatever happens now, the person must
+  // not be told it failed — that would invite a retry of something already
+  // done. signOut throws its redirect on success, which is the intended exit.
+  try {
+    await signOut({ redirectTo: '/' })
+  } catch (err) {
+    if (isRedirect(err)) throw err
+    console.error(
+      'Sign-out after account deletion failed:',
+      err instanceof Error ? err.message : err
+    )
+  }
+
+  redirect('/')
+}
+
+/** Next signals a redirect by throwing, so it must never be swallowed. */
+function isRedirect(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    typeof (err as { digest?: unknown }).digest === 'string' &&
+    (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+  )
 }
