@@ -6,9 +6,11 @@ import SidebarNav from '@/components/SidebarNav'
 
 interface AppShellProps {
   children: React.ReactNode
+  /** Sign in / sign out, resolved on the server and rendered top right. */
+  account?: React.ReactNode
 }
 
-export default function AppShell({ children }: AppShellProps) {
+export default function AppShell({ children, account }: AppShellProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   
@@ -29,28 +31,6 @@ export default function AppShell({ children }: AppShellProps) {
     // it would stack above the content as a full-width band instead of sitting
     // beside it, which is the layout this app had before.
     <div className="relative flex min-h-screen flex-col md:flex-row">
-      {/* Mobile Top Bar */}
-      <header
-        data-testid="mobile-topbar"
-        className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 p-4 md:hidden"
-      >
-        <span className="text-lg font-bold text-zinc-100">Lacrosse Grind</span>
-        <button
-          onClick={toggleDrawer}
-          aria-label="Open menu"
-          aria-expanded={isOpen}
-          className="rounded-md p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
-        >
-          <span className="sr-only">Menu</span>
-          {/* Simple hamburger icon */}
-          <div className="space-y-1">
-            <div className="h-0.5 w-6 bg-current" />
-            <div className="h-0.5 w-6 bg-current" />
-            <div className="h-0.5 w-6 bg-current" />
-          </div>
-        </button>
-      </header>
-
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
@@ -75,9 +55,38 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* min-w-0 keeps a wide child (the history heatmap, a long coach note)
           from stretching the row and pushing content off a phone screen. */}
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        {children}
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* The header is no longer mobile-only — the account control needs
+            somewhere to live at every width, and the top right is where people
+            look for it. Inside the content column rather than overlaying it,
+            so a long page never slides under the sign-out button. The
+            hamburger and the title stay mobile-only. */}
+        <header
+          data-testid="mobile-topbar"
+          className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 p-4 md:justify-end md:border-b-0 md:bg-transparent md:p-3"
+        >
+          <div className="flex items-center gap-3 md:hidden">
+            <button
+              onClick={toggleDrawer}
+              aria-label="Open menu"
+              aria-expanded={isOpen}
+              className="rounded-md p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+            >
+              <span className="sr-only">Menu</span>
+              {/* Simple hamburger icon */}
+              <div className="space-y-1">
+                <div className="h-0.5 w-6 bg-current" />
+                <div className="h-0.5 w-6 bg-current" />
+                <div className="h-0.5 w-6 bg-current" />
+              </div>
+            </button>
+            <span className="text-lg font-bold text-zinc-100">Lacrosse Grind</span>
+          </div>
+          {account}
+        </header>
+
+        <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+      </div>
     </div>
   )
 }

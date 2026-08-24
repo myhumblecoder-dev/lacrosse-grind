@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppShell from "@/components/AppShell";
+import AccountControl from "@/components/AccountControl";
+import { auth } from "@/auth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,16 +20,22 @@ export const metadata: Metadata = {
   description: "Daily training companion — effort over outcome.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Resolved here, in a server component, so the header knows who you are
+  // without every page having to tell it.
+  const session = await auth();
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-zinc-950 text-zinc-100">
-        <AppShell>{children}</AppShell>
+        <AppShell account={<AccountControl signedIn={Boolean(session?.user)} />}>
+          {children}
+        </AppShell>
       </body>
     </html>
   );

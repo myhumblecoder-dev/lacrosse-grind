@@ -1,5 +1,8 @@
 import { prisma as db } from "@/lib/db"
-import { requireUserId } from "@/lib/tenancy"
+import { getViewer, type Viewer } from "@/lib/viewer"
+import { getDemoSeason } from "@/lib/demoSeason"
+import { promptSignIn } from "@/app/actions/promptSignIn"
+import DemoBanner from "@/components/DemoBanner"
 import { getWeekStart, formatWeekLabel, getLastCompletedWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
 import { generateBossChallenge } from "@/app/actions/generateBossChallenge"
@@ -26,65 +29,102 @@ type Battle = {
   coachNote: string | null
 }
 
-function challengeCard(laneId: string, weekStarting: Date, battle: Battle | undefined, allowance: number) {
+/**
+ * `gate` is passed for a signed-out visitor: facing, re-rolling and beating a
+ * boss all become the sign-in invitation, so the demo never reaches an action
+ * — and never spends a coach generation on someone who has not signed up.
+ */
+function challengeCard(
+  laneId: string,
+  weekStarting: Date,
+  battle: Battle | undefined,
+  allowance: number,
+  gate: (() => Promise<void>) | null
+) {
   return (
     <BossChallengeCard
       challenge={battle?.challenge ?? null}
       rerollsLeft={battle ? Math.max(0, allowance - battle.rerollCount) : allowance}
       completedAt={battle?.completedAt ?? null}
       coachNote={battle?.coachNote ?? null}
-      onFace={async () => {
+      onFace={gate ?? (async () => {
         "use server"
         await generateBossChallenge(laneId, weekStarting)
-      }}
-      onReroll={async () => {
+      })}
+      onReroll={gate ?? (async () => {
         "use server"
         if (battle) await rerollBossChallenge(battle.id)
-      }}
-      onComplete={async () => {
+      })}
+      onComplete={gate ?? (async () => {
         "use server"
         if (!battle) return
         const r = await completeBossBattle(battle.id)
         if (r.ok) {
           return { leveledUp: r.leveledUp, newLevel: r.newLevel, levelName: r.levelName }
         }
-      }}
+      })}
     />
   )
 }
 
+/** Active lanes, the bench and the defeat count, from the database or the demo. */
+async function loadBattles(viewer: Viewer, trainingDay: Date) {
+  const thisWeekStart = getWeekStart(trainingDay)
+  const lastWeekStart = getLastCompletedWeekStart(trainingDay)
+
+  if (viewer.kind === "demo") {
+    const demo = getDemoSeason(trainingDay)
+    return {
+      lanes: demo.lanes.filter((l) => l.isActive),
+      inactiveLanes: demo.lanes
+        .filter((l) => !l.isActive)
+        .map((l) => ({ id: l.id, name: l.name, emoji: l.emoji })),
+      defeats: demo.defeats,
+    }
+  }
+
+  const { userId } = viewer
+  const [lanes, inactiveLanes, defeats] = await Promise.all([
+    db.lane.findMany({
+      where: { isActive: true, userId },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        checkIns: { where: { date: { gte: lastWeekStart } } },
+        bossBattles: {
+          where: { weekStarting: { in: [lastWeekStart, thisWeekStart] } },
+        },
+        targetChanges: true,
+      },
+    }),
+    // What a lane change would cost right now, decided once for the page.
+    db.lane.findMany({
+      where: { isActive: false, userId },
+      select: { id: true, name: true, emoji: true },
+    }),
+    db.bossBattle.count({
+      where: { completedAt: { not: null }, lane: { userId } },
+    }),
+  ])
+
+  return { lanes, inactiveLanes, defeats }
+}
+
 export default async function BossBattlesPage() {
-  const userId = await requireUserId()
+  const viewer = await getViewer()
+  const isDemo = viewer.kind === "demo"
   const trainingDay = getTrainingDay(new Date())
   const thisWeekStart = getWeekStart(trainingDay)
   const lastWeekStart = getLastCompletedWeekStart(trainingDay)
 
-  const lanes = await db.lane.findMany({
-    where: { isActive: true, userId },
-    orderBy: { sortOrder: "asc" },
-    include: {
-      checkIns: {
-        where: {
-          date: { gte: lastWeekStart },
-        },
-      },
-      bossBattles: {
-        where: {
-          weekStarting: { in: [lastWeekStart, thisWeekStart] },
-        },
-      },
-      targetChanges: true,
-    },
-  })
+  const { lanes, inactiveLanes, defeats } = await loadBattles(viewer, trainingDay)
 
-  // What a lane change would cost right now, decided once for the page.
-  const inactiveLanes = await db.lane.findMany({
-    where: { isActive: false, userId },
-    select: { id: true, name: true, emoji: true },
-  })
-  const defeats = await db.bossBattle.count({
-    where: { completedAt: { not: null }, lane: { userId } },
-  })
+  // Signed-out visitors get the sign-in prompt instead of a write.
+  const gate = isDemo
+    ? async () => {
+        "use server"
+        await promptSignIn()
+      }
+    : null
   const rank = playerLevel(defeats)
   const rerollAllowance = rank.level >= 5 ? 2 : 1
   const swapState = validateSwap(lanes.length, requiredLanes(rank.level))
@@ -112,6 +152,7 @@ export default async function BossBattlesPage() {
 
   return (
     <main className="max-w-2xl mx-auto space-y-8 p-6">
+      {isDemo && <DemoBanner />}
       <h1 className="text-2xl font-bold">
         Boss Battles — week of {formatWeekLabel(thisWeekStart)}
       </h1>
@@ -172,16 +213,16 @@ export default async function BossBattlesPage() {
                     ✅ Target hit
                   </div>
                 )}
-                {challengeCard(lane.id, thisWeekStart, battle, rerollAllowance)}
+                {challengeCard(lane.id, thisWeekStart, battle, rerollAllowance, gate)}
                 {battle?.completedAt && (
                   <BossBattleSwapTrigger
                     lane={{ id: lane.id, name: lane.name, emoji: lane.emoji }}
                     inactiveLanes={inactiveLanes}
                     swapState={swapState}
-                    onSwapLane={async (outLaneId, inLaneId) => {
+                    onSwapLane={gate ?? (async (outLaneId, inLaneId) => {
                       "use server"
                       return swapLane({ outLaneId, inLaneId })
-                    }}
+                    })}
                   />
                 )}
               </div>
@@ -211,7 +252,8 @@ export default async function BossBattlesPage() {
                   lane.bossBattles.find(
                     (b) => b.weekStarting.getTime() === lastWeekStart.getTime()
                   ),
-                  rerollAllowance
+                  rerollAllowance,
+                  gate
                 )}
               </div>
             ))}
