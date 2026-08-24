@@ -3,15 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { signOutAction } from '@/app/actions/signOutAction'
 import {
   TodayIcon,
   LanesIcon,
   BattlesIcon,
   PrizeIcon,
   HistoryIcon,
-  MenuIcon,
-  SignOutIcon
+  MenuIcon
 } from '@/components/icons'
 
 interface NavItem {
@@ -73,21 +71,6 @@ export default function SidebarNav() {
         })}
       </nav>
 
-      {/* Not on the sign-in page: the shell wraps every route, so the sidebar
-          renders there too, and offering to sign out of nothing is nonsense. */}
-      {pathname !== '/signin' && (
-        <form action={signOutAction} className="mt-auto border-t border-zinc-800 p-2">
-          <button
-            type="submit"
-            title="Sign out"
-            data-testid="sign-out"
-            className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-100"
-          >
-            <SignOutIcon />
-            <span className={collapsed ? 'sr-only' : ''}>Sign out</span>
-          </button>
-        </form>
-      )}
     </aside>
   )
 }

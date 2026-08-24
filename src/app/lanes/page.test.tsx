@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
-import { requireUserId } from '@/lib/tenancy'
+import { getViewer } from '@/lib/viewer'
 import { prisma } from '@/lib/db'
 
 // next/font's loader only exists inside the Next build; under vitest
@@ -10,9 +10,7 @@ vi.mock('next/font/google', () => new Proxy({}, {
   get: () => () => ({ variable: 'mock-font-variable', className: 'mock-font' }),
 }))
 
-vi.mock('@/lib/tenancy', () => ({
-  requireUserId: vi.fn(),
-}))
+vi.mock('@/lib/viewer', () => ({ getViewer: vi.fn() }))
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -36,7 +34,7 @@ describe('Page', () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
-    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
   })
 
   it('the lane list is scoped to the signed-in user', async () => {
@@ -52,7 +50,7 @@ describe('Page', () => {
     const ResolvedPage = await Page()
     render(ResolvedPage)
 
-    expect(requireUserId).toHaveBeenCalled()
+    expect(getViewer).toHaveBeenCalled()
     expect(prisma.lane.findMany).toHaveBeenCalledWith({
       where: { userId: 'u1' },
       orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }],

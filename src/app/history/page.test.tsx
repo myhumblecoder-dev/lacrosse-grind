@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Page from './page'
 import { getWeekStart, formatWeekLabel } from '@/lib/weekUtils'
 import { getTrainingDay } from '@/lib/trainingDay'
-import { requireUserId } from '@/lib/tenancy'
+import { getViewer } from '@/lib/viewer'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -16,7 +16,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/viewer', () => ({ getViewer: vi.fn() }))
 
 vi.mock('next/font/google', () => new Proxy({}, {
   get: () => () => ({ variable: 'mock-font-variable', className: 'mock-int' }),
@@ -28,20 +28,20 @@ describe('Page', () => {
     const { prisma } = await import('@/lib/db')
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
-    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
   })
 
   it('the history queries are scoped to the signed-in user', async () => {
     const { prisma } = await import('@/lib/db')
     const userId = 'u1'
-    vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId })
     
     vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'prize', userId } as any)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
 
     await Page()
 
-    expect(requireUserId).toHaveBeenCalled()
+    expect(getViewer).toHaveBeenCalled()
     expect(prisma.prize.findUnique).toHaveBeenCalledWith({
       where: { userId }
     })

@@ -24,11 +24,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // storage moves into the cookie.
   session: { strategy: "jwt" },
   callbacks: {
-    authorized({ auth, request }) {
-      const { pathname } = request.nextUrl
-      if (pathname === "/signin") return true
-      return !!auth?.user
-    },
+    // No `authorized` callback on purpose. The app is public: a signed-out
+    // visitor browses a generated demo season, so gating routes here would
+    // slam the door on the thing the demo exists to show. Protection lives
+    // where the writes are — every action calls `requireUserId`, which still
+    // redirects. See src/lib/viewer.ts for the read side of that split.
     session({ session, token }) {
       // Every scoped query keys off session.user.id — without this copy the
       // id is undefined and scoping silently matches nothing. With JWT

@@ -4,7 +4,7 @@ import Page from './page'
 import { prisma as db } from '@/lib/db'
 import { getLastCompletedWeekStart, getWeekStart, formatWeekLabel } from '@/lib/weekUtils'
 import { getTrainingDay } from '@/lib/trainingDay'
-import { requireUserId } from '@/lib/tenancy'
+import { getViewer } from '@/lib/viewer'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -21,9 +21,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/tenancy', () => ({ 
-  requireUserId: vi.fn() 
-}))
+vi.mock('@/lib/viewer', () => ({ getViewer: vi.fn() }))
 
 // next/font's loader only exists inside the Next build; under vitest
 // `Geist(...)` is not a function and the suite dies at module load.
@@ -34,7 +32,7 @@ vi.mock('next/font/google', () => new Proxy({}, {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
     // Persistent default: any call not overridden by a test's Once
     // (i.e. the second, inactive-lanes call) resolves empty. A Once here
     // would be consumed FIFO by the FIRST (active) call instead.
@@ -44,7 +42,7 @@ describe('Page', () => {
 
   it('both lane queries are scoped to the signed-in user', async () => {
     const userId = 'u1'
-    vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId })
 
     const lane = {
       id: 'l1',

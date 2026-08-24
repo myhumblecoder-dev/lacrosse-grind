@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db"
-import { requireUserId } from "@/lib/tenancy"
+import { getViewer, type Viewer } from "@/lib/viewer"
+import { getDemoSeason } from "@/lib/demoSeason"
+import { promptSignIn } from "@/app/actions/promptSignIn"
+import DemoBanner from "@/components/DemoBanner"
 import { computeStreak } from "@/lib/streak"
 import { countQualifyingHits } from "@/lib/qualifyingWeek"
 import { findRepairableGap } from "@/lib/repairableGap"
@@ -27,45 +30,78 @@ import Link from "next/link"
 
 export const dynamic = "force-dynamic"
 
-export default async function DashboardPage() {
-  const userId = await requireUserId()
-  const today = getTrainingDay(new Date())
-  const weekStart = getWeekStart(today)
+// A streak runs across weeks, so it cannot be read from this week's rows
+// alone — fetching only from Monday silently capped every streak at 7 and
+// reset it each Monday. Bounded rather than unbounded: a run older than this
+// is well past anything the badge or a freeze can act on.
+const STREAK_WINDOW_DAYS = 400
 
-  const [prize, activeLaneCount, defeats] = await Promise.all([
+/**
+ * Everything Today needs, from the database or from the demo.
+ *
+ * Split out so the branch narrows the viewer in one place. The two sources
+ * return the same shape, which is why nothing downstream — computeStreak,
+ * findRepairableGap, effectiveTarget — knows the difference.
+ */
+async function loadDashboard(viewer: Viewer, today: Date) {
+  if (viewer.kind === "demo") {
+    const demo = getDemoSeason(today)
+    return {
+      prize: demo.prize,
+      activeLaneCount: demo.lanes.filter((l) => l.isActive).length,
+      defeats: demo.defeats,
+      lanes: demo.lanes.filter((l) => l.isActive),
+    }
+  }
+
+  const { userId } = viewer
+  const streakWindowStart = new Date(
+    today.getTime() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  )
+
+  const [prize, activeLaneCount, defeats, lanes] = await Promise.all([
     prisma.prize.findUnique({ where: { userId } }),
     prisma.lane.count({ where: { isActive: true, userId } }),
     prisma.bossBattle.count({
       where: { completedAt: { not: null }, lane: { userId } },
     }),
+    prisma.lane.findMany({
+      where: { isActive: true, userId },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        checkIns: {
+          where: { date: { gte: streakWindowStart } },
+          orderBy: { date: "asc" },
+        },
+        targetChanges: true,
+        streakFreezes: true,
+      },
+    }),
   ])
+
+  return { prize, activeLaneCount, defeats, lanes }
+}
+
+export default async function DashboardPage() {
+  const viewer = await getViewer()
+  const isDemo = viewer.kind === "demo"
+  const today = getTrainingDay(new Date())
+  const weekStart = getWeekStart(today)
+
+  const { prize, activeLaneCount, defeats, lanes: allLanes } =
+    await loadDashboard(viewer, today)
+
+  // Every control hands a signed-out visitor to sign-in rather than an action,
+  // so the write path is never entered at all.
+  const gate = async () => {
+    "use server"
+    await promptSignIn()
+  }
 
   const rank = playerLevel(defeats)
   const demand = requiredLanes(rank.level)
   const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize), demand)
   const hasStarted = Boolean(prize?.seasonStart)
-
-  // A streak runs across weeks, so it cannot be read from this week's rows
-  // alone — fetching only from Monday silently capped every streak at 7 and
-  // reset it each Monday. Bounded rather than unbounded: a run older than this
-  // is well past anything the badge or a freeze can act on.
-  const STREAK_WINDOW_DAYS = 400
-  const streakWindowStart = new Date(
-    today.getTime() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000
-  )
-
-  const allLanes = await prisma.lane.findMany({
-    where: { isActive: true, userId },
-    orderBy: { sortOrder: "asc" },
-    include: {
-      checkIns: {
-        where: { date: { gte: streakWindowStart } },
-        orderBy: { date: "asc" },
-      },
-      targetChanges: true,
-      streakFreezes: true,
-    },
-  })
 
   // Lanes that haven't reached their first week sort below the live ones, so
   // the set he can actually train today reads first.
@@ -74,6 +110,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
+      {isDemo && <DemoBanner />}
       <div className="space-y-4">
         <SeasonStartButton hasStarted={hasStarted} isReady={readiness.isReady} />
         {/* Pressing START on a Friday commits Eddie to a season that begins
@@ -144,11 +181,11 @@ export default async function DashboardPage() {
               checkedIn={!!todayCheckIn}
               isRest={todayCheckIn?.isRest ?? false}
               today={today.toISOString()}
-              createCheckIn={async (params) => {
+              createCheckIn={isDemo ? gate : async (params) => {
                 "use server"
                 await createCheckIn(params)
               }}
-              deleteCheckIn={async (laneId, date) => {
+              deleteCheckIn={isDemo ? gate : async (laneId, date) => {
                 "use server"
                 await deleteCheckIn(laneId, date)
               }}
@@ -175,7 +212,7 @@ export default async function DashboardPage() {
                 missedDate={gap.toISOString()}
                 streakIfRepaired={streakIfRepaired}
                 freezesAvailable={freezesAvailable}
-                spendFreeze={async (laneId, date) => {
+                spendFreeze={isDemo ? gate : async (laneId, date) => {
                   "use server"
                   return spendFreeze(laneId, date)
                 }}
@@ -193,7 +230,9 @@ export default async function DashboardPage() {
         />
       ))}
 
-      {hasStarted && <SeasonResetButton />}
+      {/* Not in the demo: wiping a season nobody owns is meaningless, and it
+          is the one destructive control on the page. */}
+      {hasStarted && !isDemo && <SeasonResetButton />}
     </main>
   )
 }
