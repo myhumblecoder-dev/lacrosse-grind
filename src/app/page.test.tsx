@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Page from './page'
 import { LANES_REQUIRED } from '@/lib/season'
 import { prisma } from '@/lib/db'
@@ -168,5 +168,128 @@ describe('Page', () => {
     render(await Page())
 
     expect(screen.queryByTestId('season-reset-open')).toBeNull()
+  })
+})
+
+describe('Page — the freeze offer', () => {
+  const day = (iso: string) => new Date(iso + 'T00:00:00.000Z')
+
+  // Today is Sunday 23 Aug 2026, the day from Eddie's report.
+  const TODAY = '2026-08-23'
+
+  const laneWith = (
+    checkIns: { date: Date; isRest: boolean }[],
+    streakFreezes: { usedDate: Date | null }[]
+  ) => [{
+    id: 'l1',
+    name: '50yrd suicide 3 times',
+    emoji: '🏃',
+    targetPerWeek: 3,
+    isActive: true,
+    sortOrder: 0,
+    startsOn: null,
+    targetChanges: [],
+    checkIns,
+    streakFreezes,
+  }]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(TODAY + 'T18:00:00.000Z'))
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(prisma.lane.count).mockResolvedValue(3)
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+  })
+
+  afterEach(() => vi.useRealTimers())
+
+  it('offers a banked freeze for the day that broke the run', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(
+      laneWith(
+        [
+          { date: day('2026-08-23'), isRest: false }, // today
+          // 22 Aug missed
+          { date: day('2026-08-21'), isRest: false },
+          { date: day('2026-08-20'), isRest: false },
+        ],
+        [{ usedDate: null }]
+      ) as never
+    )
+
+    render(await Page())
+
+    expect(screen.getByTestId('freeze-offer')).toHaveTextContent(
+      /You missed Sat 22 Aug 2026/
+    )
+    // 23rd + frozen 22nd + 21st + 20th
+    expect(screen.getByTestId('freeze-offer')).toHaveTextContent(
+      /take your streak to 4/
+    )
+  })
+
+  it('offers nothing when there is no token banked', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(
+      laneWith(
+        [
+          { date: day('2026-08-23'), isRest: false },
+          { date: day('2026-08-21'), isRest: false },
+          { date: day('2026-08-20'), isRest: false },
+        ],
+        []
+      ) as never
+    )
+
+    render(await Page())
+
+    expect(screen.queryByTestId('freeze-offer')).not.toBeInTheDocument()
+  })
+
+  it('offers nothing while today has no check-in', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(
+      laneWith(
+        [
+          { date: day('2026-08-21'), isRest: false },
+          { date: day('2026-08-20'), isRest: false },
+        ],
+        [{ usedDate: null }]
+      ) as never
+    )
+
+    render(await Page())
+
+    expect(screen.queryByTestId('freeze-offer')).not.toBeInTheDocument()
+  })
+
+  it('a spent freeze keeps the streak counting across the day it covered', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(
+      laneWith(
+        [
+          { date: day('2026-08-23'), isRest: false },
+          { date: day('2026-08-21'), isRest: false },
+          { date: day('2026-08-20'), isRest: false },
+        ],
+        [{ usedDate: day('2026-08-22') }]
+      ) as never
+    )
+
+    render(await Page())
+
+    // The gap is bridged, so there is nothing left to offer...
+    expect(screen.queryByTestId('freeze-offer')).not.toBeInTheDocument()
+    // ...and the run reads as unbroken rather than resetting to 1.
+    expect(screen.getByText('4')).toBeInTheDocument()
+  })
+
+  it('reaches back beyond this week so a streak is not capped at the Monday', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(laneWith([], []) as never)
+
+    await Page()
+
+    const include = vi.mocked(prisma.lane.findMany).mock.calls[0][0]!
+      .include as { checkIns: { where: { date: { gte: Date } } } }
+    const weekStart = day('2026-08-17')
+    expect(include.checkIns.where.date.gte.getTime()).toBeLessThan(weekStart.getTime())
   })
 })
