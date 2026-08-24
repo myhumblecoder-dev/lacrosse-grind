@@ -9,7 +9,8 @@ import {
   BattlesIcon,
   PrizeIcon,
   HistoryIcon,
-  MenuIcon
+  MenuIcon,
+  AccountIcon
 } from '@/components/icons'
 
 interface NavItem {
@@ -26,7 +27,11 @@ const NAV: NavItem[] = [
   { href: '/history', label: 'History', icon: HistoryIcon },
 ]
 
-export default function SidebarNav() {
+interface SidebarNavProps {
+  signedIn?: boolean
+}
+
+export default function SidebarNav({ signedIn = false }: SidebarNavProps) {
   const [collapsed, setCollapsed] = useState<boolean>(false)
   const pathname = usePathname()
 
@@ -46,7 +51,10 @@ export default function SidebarNav() {
       </div>
 
       <nav className="mt-2">
-        {NAV.map((item) => {
+        {/* Account only when there is one. Showing it to a demo visitor would
+            bounce them to the sign-in screen, which is the dead end the demo
+            exists to remove. */}
+        {(signedIn ? [...NAV, { href: '/account', label: 'Account', icon: AccountIcon }] : NAV).map((item) => {
           const isActive = pathname === item.href
           const Icon = item.icon
 

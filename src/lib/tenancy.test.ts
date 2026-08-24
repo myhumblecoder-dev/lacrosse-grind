@@ -3,10 +3,13 @@ import { requireUserId } from './tenancy'
 
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import { prisma } from '@/lib/db'
 
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
+
+vi.mock('@/lib/db', () => ({ prisma: { user: { count: vi.fn() } } }))
 
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(() => { throw new Error('REDIRECT') }),
@@ -22,6 +25,7 @@ const mockRedirect = vi.mocked(redirect)
 describe('tenancy', () => {
   it('a session returns its user id', async () => {
     mockAuth.mockResolvedValue({ user: { id: 'u1' } } as never)
+    vi.mocked(prisma.user.count).mockResolvedValue(1)
 
     const userId = await requireUserId()
 
@@ -42,5 +46,19 @@ describe('tenancy', () => {
 
     await expect(requireUserId()).rejects.toThrow('REDIRECT')
     expect(mockRedirect).toHaveBeenCalledWith('/signin')
+  })
+})
+
+describe('requireUserId — a cookie is not proof the account exists', () => {
+  it('sends a deleted account back to sign-in rather than trusting the JWT', async () => {
+    // Sessions are JWTs, so a signed cookie keeps naming a user for its full
+    // thirty-day window after the account is deleted. Without the row check a
+    // write on a second device fails on a foreign key instead of asking them
+    // to sign in.
+    mockAuth.mockResolvedValue({ user: { id: 'gone' } } as never)
+    vi.mocked(prisma.user.count).mockResolvedValue(0)
+
+    await expect(requireUserId()).rejects.toThrow()
+    expect(redirect).toHaveBeenCalledWith('/signin')
   })
 })
