@@ -27,6 +27,14 @@ export interface RecapLaneWeek {
   hits: number;
   target: number;
   battleFought: boolean;
+  /**
+   * The day the boss fell, at UTC midnight, or null.
+   *
+   * Kept separate from `battleFought` because a boss can be beaten in its
+   * grace week — the week after the one it belongs to — so a week can be
+   * marked as fought without any of ITS days being the day it happened.
+   */
+  battleDay: Date | null;
   days: RecapDay[];
 }
 
@@ -64,6 +72,7 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
           hits: 0,
           days: [],
           battleFought: false,
+          battleDay: null,
           sortOrder: lane.sortOrder
         });
       }
@@ -86,6 +95,10 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
           if (weekEntry.laneData.has(lane.id)) {
             const laneWeek = weekEntry.laneData.get(lane.id)!;
             laneWeek.battleFought = true;
+            const fell = battle.completedAt;
+            laneWeek.battleDay = new Date(
+              Date.UTC(fell.getUTCFullYear(), fell.getUTCMonth(), fell.getUTCDate())
+            );
           }
         }
       }
@@ -112,6 +125,7 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
             );
           })(),
           battleFought: ld.battleFought,
+          battleDay: ld.battleDay,
           days: ld.days.sort((a: RecapDay, b: RecapDay) => a.date.getTime() - b.date.getTime())
         }))
         .sort((a, b) => {

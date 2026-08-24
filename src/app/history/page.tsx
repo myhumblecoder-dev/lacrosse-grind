@@ -31,7 +31,7 @@ export default async function HistoryPage() {
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
       <h1 className="text-2xl font-bold">History</h1>
-      <p className="mt-1 text-sm text-zinc-500">Your season, week by week — green for a session, blue for a rest day, purple for a boss-battle week. Only days you showed up are here.</p>
+      <p className="mt-1 text-sm text-zinc-500">Your season, week by week — green for a session, blue for a rest day, purple for the day you beat a boss. Only days you showed up are here.</p>
       {recaps.map((recap) => (
         <section key={recap.weekStart.getTime()} className="space-y-3">
           <h2 className="text-lg font-semibold">
@@ -53,19 +53,34 @@ export default async function HistoryPage() {
                 )}
               </span>
               <div className="flex gap-1">
-                {lane.days.map((d) => (
-                  <div
-                    key={d.date.getTime()}
-                    className={`h-6 w-6 rounded ${
-                      d.isRest
-                        ? "bg-blue-300"
-                        : lane.battleFought
-                          ? "bg-purple-500"
-                          : "bg-green-400"
-                    }`}
-                    title={d.date.toISOString().slice(0, 10)}
-                  />
-                ))}
+                {lane.days.map((d) => {
+                  // Purple marks the day the boss fell, not the week it fell
+                  // in. Keying this off the week-level flag repainted every
+                  // session purple and lost the record of showing up.
+                  const beatTheBoss =
+                    lane.battleDay !== null &&
+                    d.date.getTime() === lane.battleDay.getTime()
+
+                  return (
+                    <div
+                      key={d.date.getTime()}
+                      // Rest still wins: a rest day reads blue even if the boss
+                      // happened to fall on it, which is the rule this page
+                      // already held to.
+                      className={`h-6 w-6 rounded ${
+                        d.isRest
+                          ? "bg-blue-300"
+                          : beatTheBoss
+                            ? "bg-purple-500"
+                            : "bg-green-400"
+                      }`}
+                      title={
+                        d.date.toISOString().slice(0, 10) +
+                        (d.isRest ? " — rest day" : beatTheBoss ? " — boss defeated" : "")
+                      }
+                    />
+                  )
+                })}
               </div>
               <span className="text-sm text-zinc-600">
                 {lane.hits} / {lane.target} days
