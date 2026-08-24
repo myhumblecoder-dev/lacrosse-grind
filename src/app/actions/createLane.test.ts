@@ -3,8 +3,9 @@ import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { requireUserId } from '@/lib/tenancy'
 import { createLane } from './createLane'
+import { MAX_LANES_PER_USER } from '@/lib/season'
 
-vi.mock('@/lib/db', () => ({ prisma: { lane: { create: vi.fn() } } }))
+vi.mock('@/lib/db', () => ({ prisma: { lane: { create: vi.fn(), count: vi.fn() } } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
 
@@ -12,6 +13,7 @@ describe('createLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(prisma.lane.count).mockResolvedValue(0)
   })
 
   it('the created lane belongs to the signed-in user', async () => {
@@ -97,5 +99,37 @@ describe('createLane', () => {
     expect(result).toEqual({ ok: false, error: 'validation' })
     expect(prisma.lane.create).not.toHaveBeenCalled()
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+})
+
+describe('createLane — a ceiling on how many lanes one account owns', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+  })
+
+  it('refuses past the ceiling, and writes nothing', async () => {
+    // Nothing bounded this before: the demand ladder caps how many must be
+    // ACTIVE, not how many can exist.
+    vi.mocked(prisma.lane.count).mockResolvedValue(MAX_LANES_PER_USER)
+
+    const result = await createLane({ name: 'One more', emoji: '🥍', targetPerWeek: 3 })
+
+    expect(result).toEqual({ ok: false, error: 'too-many-lanes' })
+    expect(prisma.lane.create).not.toHaveBeenCalled()
+  })
+
+  it('counts only the caller\'s lanes', async () => {
+    vi.mocked(prisma.lane.count).mockResolvedValue(0)
+    vi.mocked(prisma.lane.create).mockResolvedValue({ id: 'l1' } as never)
+
+    await createLane({ name: 'Sprints', emoji: '🏃', targetPerWeek: 3 })
+
+    expect(prisma.lane.count).toHaveBeenCalledWith({ where: { userId: 'u1' } })
+  })
+
+  it('leaves room for a real season of swapping', async () => {
+    // A swap a week for thirteen weeks, never reusing a lane, is about twenty.
+    expect(MAX_LANES_PER_USER).toBeGreaterThan(20)
   })
 })
