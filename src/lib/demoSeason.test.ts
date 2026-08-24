@@ -101,7 +101,7 @@ describe("getDemoSeason", () => {
     expect(season.prize.seasonStart.getTime()).toBeLessThan(
       getWeekStart(today).getTime()
     );
-    expect(season.prize.photoUrl).toBe("/demo/disney-pixar-pier.jpg");
+    expect(season.prize.photoUrl).toBe("/demo/disney-ears.jpg");
   });
 
   it("is pure — two calls at the same moment agree", () => {
