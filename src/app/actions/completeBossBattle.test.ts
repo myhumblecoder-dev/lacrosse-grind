@@ -35,6 +35,10 @@ describe('completeBossBattle', () => {
     vi.mocked(requireUserId).mockResolvedValue(userId)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(null as any)
+    // Minting a freeze goes through awardFreeze, which confirms the lane is
+    // the signed-in user's before banking anything.
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: laneId, userId } as any)
+    vi.mocked(prisma.streakFreeze.create).mockResolvedValue({ id: 'fz-1' } as any)
   })
 
   it('crossing a Fibonacci threshold reports leveledUp with the new rank', async () => {

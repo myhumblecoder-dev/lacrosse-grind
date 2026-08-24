@@ -129,7 +129,7 @@ No `User` model — single-user MVP.
 | `src/lib/db.ts` | lib | Prisma client singleton (`globalThis` guard); exports `prisma` |
 | `src/lib/validation.ts` | lib | Zod schemas: `laneSchema`, `checkInSchema`, `bossBattleSchema`, `reflectionSchema` |
 | `src/lib/llm.ts` | lib | LLM helper: `generate(prompt): Promise<string>`; Ollama default / Anthropic opt-in |
-| `src/lib/streak.ts` | lib | Streak computation: `computeStreak(checkIns: CheckIn[], today: Date): number` using date-fns |
+| `src/lib/streak.ts` | lib | Streak computation: `computeStreak(checkIns, today, frozenDates?): number` — a day covered by a spent freeze counts as a hit |
 | `src/lib/weekUtils.ts` | lib | Week boundary helpers: `getWeekStart(date: Date): Date`, `get2WeekBlockStart(date: Date): Date`, `formatWeekLabel(date: Date): string` — all UTC via date-fns-tz |
 | `src/app/actions/createLane.ts` (+ `.test.ts`) | action | Create a Lane; validates with `laneSchema` |
 | `src/app/actions/updateLane.ts` (+ `.test.ts`) | action | Toggle active/sort/name/emoji/frequency |
@@ -138,7 +138,8 @@ No `User` model — single-user MVP.
 | `src/app/actions/createBossBattle.ts` (+ `.test.ts`) | action | Submit boss battle self-report → calls `generate()` for coach note |
 | `src/app/actions/createReflection.ts` (+ `.test.ts`) | action | Submit weekly reflection → calls `generate()` for coach summary |
 | `src/app/actions/awardFreeze.ts` (+ `.test.ts`) | action | Award a streak freeze token to a lane |
-| `src/app/actions/useFreeze.ts` (+ `.test.ts`) | action | Mark a freeze token used for a lane+date |
+| `src/app/actions/spendFreeze.ts` (+ `.test.ts`) | action | Spend a freeze on the missed day that breaks a streak (named `spendFreeze`, not `useFreeze`: a `useX` export trips React's rules-of-hooks lint) |
+| `src/lib/repairableGap.ts` (+ `.test.ts`) | lib | `findRepairableGap(checkIns, today, frozenDates?)` — the missed day worth a token, or null |
 | `src/app/page.tsx` | route | Daily dashboard — today's checklist across all active lanes |
 | `src/app/layout.tsx` | route | Root layout — nav shell (modify scaffold version) |
 | `src/app/lanes/page.tsx` | route | Lane management — list, add, toggle active, reorder |

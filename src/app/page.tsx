@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { requireUserId } from "@/lib/tenancy"
 import { computeStreak } from "@/lib/streak"
+import { findRepairableGap } from "@/lib/repairableGap"
 import { getWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
 import { createCheckIn } from "@/app/actions/createCheckIn"
@@ -17,6 +18,8 @@ import SeasonTimelineNote from "@/components/SeasonTimelineNote"
 import { getSeasonReadiness } from "@/lib/seasonReadiness"
 import PlayerAvatarCard from "@/components/PlayerAvatarCard"
 import { FreezeBadge } from "@/components/FreezeBadge"
+import FreezeOffer from "@/components/FreezeOffer"
+import { spendFreeze } from "@/app/actions/spendFreeze"
 import { playerLevel } from "@/lib/playerLevel"
 import { requiredLanes } from "@/lib/laneRequirement"
 import Link from "next/link"
@@ -39,20 +42,27 @@ export default async function DashboardPage() {
   const rank = playerLevel(defeats)
   const demand = requiredLanes(rank.level)
   const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize), demand)
-  const freezeRows = await prisma.streakFreeze.groupBy({
-    by: ["laneId"],
-    where: { usedDate: null, lane: { userId } },
-    _count: { _all: true },
-  })
-  const freezesByLane = new Map(freezeRows.map((r) => [r.laneId, r._count._all]))
   const hasStarted = Boolean(prize?.seasonStart)
+
+  // A streak runs across weeks, so it cannot be read from this week's rows
+  // alone — fetching only from Monday silently capped every streak at 7 and
+  // reset it each Monday. Bounded rather than unbounded: a run older than this
+  // is well past anything the badge or a freeze can act on.
+  const STREAK_WINDOW_DAYS = 400
+  const streakWindowStart = new Date(
+    today.getTime() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  )
 
   const allLanes = await prisma.lane.findMany({
     where: { isActive: true, userId },
     orderBy: { sortOrder: "asc" },
     include: {
-      checkIns: { where: { date: { gte: weekStart } }, orderBy: { date: "asc" } },
+      checkIns: {
+        where: { date: { gte: streakWindowStart } },
+        orderBy: { date: "asc" },
+      },
       targetChanges: true,
+      streakFreezes: true,
     },
   })
 
@@ -103,11 +113,26 @@ export default async function DashboardPage() {
         const todayCheckIn = lane.checkIns.find(
           (c) => c.date.getTime() === today.getTime()
         )
-        const weeklyHits = lane.checkIns.length
-        const streak = computeStreak(
-          lane.checkIns.map((c) => ({ date: c.date, isRest: c.isRest })),
-          today
-        )
+        // The query now reaches back past Monday for the streak, so this
+        // week's tally has to be narrowed again here.
+        const weeklyHits = lane.checkIns.filter((c) => c.date >= weekStart).length
+
+        const history = lane.checkIns.map((c) => ({
+          date: c.date,
+          isRest: c.isRest,
+        }))
+        const frozenDates = lane.streakFreezes
+          .map((f) => f.usedDate)
+          .filter((d): d is Date => d !== null)
+        const freezesAvailable = lane.streakFreezes.filter(
+          (f) => f.usedDate === null
+        ).length
+
+        const streak = computeStreak(history, today, frozenDates)
+        const gap = findRepairableGap(history, today, frozenDates)
+        const streakIfRepaired = gap
+          ? computeStreak(history, today, [...frozenDates, gap])
+          : 0
 
         return (
           <div key={lane.id} className="space-y-2 rounded-lg border p-4">
@@ -137,10 +162,23 @@ export default async function DashboardPage() {
                   )}
                 />
               </div>
-              {(freezesByLane.get(lane.id) ?? 0) > 0 && (
-                <FreezeBadge availableFreezes={freezesByLane.get(lane.id) ?? 0} />
+              {freezesAvailable > 0 && (
+                <FreezeBadge availableFreezes={freezesAvailable} />
               )}
             </div>
+
+            {gap && (
+              <FreezeOffer
+                laneId={lane.id}
+                missedDate={gap.toISOString()}
+                streakIfRepaired={streakIfRepaired}
+                freezesAvailable={freezesAvailable}
+                spendFreeze={async (laneId, date) => {
+                  "use server"
+                  return spendFreeze(laneId, date)
+                }}
+              />
+            )}
           </div>
         )
       })}
