@@ -3,6 +3,12 @@ export type PlayerLevel = {
   name: string;
   defeats: number;
   nextAt: number | null;
+  /**
+   * Fraction through the CURRENT band. Nothing renders this, on purpose: the
+   * first three bands are one boss wide, so it is pinned at 0 for every new
+   * player. The avatar card draws a pip per evolution instead. Wiring this to
+   * a progress bar puts back a bar that cannot fill until squire.
+   */
   progress: number;
 };
 
