@@ -63,7 +63,7 @@ describe('PlayerAvatarCard', () => {
   })
 
   it('does not light a pip part-way through a band', async () => {
-    // 4 defeats is still squire — the rank has not changed, so nor has the row.
+    // 4 defeats is still page — the rank has not changed, so nor has the row.
     render(<PlayerAvatarCard defeats={4} />)
     expect(earned()).toBe(4)
   })
