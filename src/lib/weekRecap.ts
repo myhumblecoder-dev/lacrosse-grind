@@ -1,6 +1,8 @@
 import { getWeekStart } from "@/lib/weekUtils";
 import { effectiveTarget } from "@/lib/effectiveTarget";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export interface RecapLaneInput {
   id: string;
   name: string;
@@ -96,9 +98,29 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
             const laneWeek = weekEntry.laneData.get(lane.id)!;
             laneWeek.battleFought = true;
             const fell = battle.completedAt;
-            laneWeek.battleDay = new Date(
+            const fellOn = new Date(
               Date.UTC(fell.getUTCFullYear(), fell.getUTCMonth(), fell.getUTCDate())
             );
+            laneWeek.battleDay = fellOn;
+
+            // The boss earns a square of its own. Beating a challenge in the
+            // backyard IS showing up, so a victory on a day with no check-in
+            // still belongs on the row rather than vanishing behind a label.
+            //
+            // Only when it falls inside this week: a boss can be beaten in its
+            // grace week, and a square dated after the row it sits in would be
+            // a lie about when the week ended.
+            const weekEnd = new Date(weekStart.getTime() + 7 * DAY_MS);
+            const withinWeek = fellOn >= weekStart && fellOn < weekEnd;
+            const alreadyADay = laneWeek.days.some(
+              (d) => d.date.getTime() === fellOn.getTime()
+            );
+
+            // Pushed to `days` but NOT counted in `hits`: the target measures
+            // training days, and the victory is not one of them.
+            if (withinWeek && !alreadyADay) {
+              laneWeek.days.push({ date: fellOn, isRest: false });
+            }
           }
         }
       }
