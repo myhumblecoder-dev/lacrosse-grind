@@ -4,6 +4,7 @@ import { generate } from "@/lib/llm";
 import { revalidatePath } from "next/cache";
 import { playerLevel } from "@/lib/playerLevel";
 import { buildVictorySummaryPrompt } from "@/lib/victorySummary";
+import { awardFreeze } from "@/app/actions/awardFreeze";
 
 export async function completeBossBattle(battleId: string): Promise<{
   ok: true;
@@ -55,12 +56,23 @@ export async function completeBossBattle(battleId: string): Promise<{
   const now = playerLevel(defeats);
   const prev = playerLevel(defeats - 1);
   const leveledUp = now.level > prev.level;
-  const freezeAwarded = leveledUp;
 
+  let freezeAwarded = false;
   if (leveledUp) {
-    await prisma.streakFreeze.create({
-      data: { laneId: battle.laneId }
-    });
+    // Through the action rather than a bare create, so minting a token goes
+    // through one owner-checked path that also refreshes the dashboard the
+    // badge is read from.
+    //
+    // Guarded for the same reason the coach note is: the boss is already
+    // beaten, and losing that to a failed bonus would take back something
+    // earned. A token that did not mint is reported as not awarded rather
+    // than assumed.
+    try {
+      const awarded = await awardFreeze(battle.laneId);
+      freezeAwarded = awarded.ok;
+    } catch {
+      freezeAwarded = false;
+    }
   }
 
   const newLevel = now.level;
@@ -97,7 +109,7 @@ export async function completeBossBattle(battleId: string): Promise<{
     coachNote,
     defeats,
     leveledUp,
-    freezeAwarded: leveledUp,
+    freezeAwarded,
     newLevel,
     levelName
   };

@@ -13,6 +13,8 @@ const LANES = [
 const SWAP_OK = { mustPickReplacement: false, canRetire: true, blocked: false }
 const INACTIVE = [{ id: '2', name: 'Swimming', emoji: '🏊' }]
 
+const WEEK_START = new Date('2026-08-17T00:00:00.000Z')
+
 const actions = () => ({
   updateLane: vi.fn(),
   setActive: vi.fn(),
@@ -20,6 +22,7 @@ const actions = () => ({
   onSwapLane: vi.fn(),
   swapState: SWAP_OK,
   inactiveLanes: INACTIVE,
+  weekStart: WEEK_START,
 })
 
 describe('LaneList', () => {
@@ -128,5 +131,98 @@ describe('LaneList', () => {
 
     expect(a.onSwapLane).toHaveBeenCalledWith('1')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('LaneList — a lane that has not started yet', () => {
+  const NEXT_MONDAY = new Date('2026-08-24T00:00:00.000Z')
+
+  it('says when a queued lane starts instead of scoring it', async () => {
+    const lanes = [
+      { ...LANES[0], startsOn: NEXT_MONDAY },
+      LANES[1],
+      LANES[2],
+    ]
+    render(<LaneList lanes={lanes} {...actions()} />)
+
+    expect(screen.getByTestId('lane-starts-1')).toHaveTextContent(
+      'starts Mon 24 Aug 2026'
+    )
+  })
+
+  it('says nothing for a lane already running', async () => {
+    render(<LaneList lanes={LANES} {...actions()} />)
+
+    expect(screen.queryByTestId('lane-starts-1')).not.toBeInTheDocument()
+  })
+
+  it('shows a scheduled target change with the date it lands', async () => {
+    const lanes = [
+      {
+        ...LANES[0],
+        targetChanges: [{ target: 5, effectiveFrom: NEXT_MONDAY }],
+      },
+      LANES[1],
+      LANES[2],
+    ]
+    render(<LaneList lanes={lanes} {...actions()} />)
+
+    expect(screen.getByTestId('lane-target-scheduled-1')).toHaveTextContent(
+      '→ 5×/week from Mon 24 Aug 2026'
+    )
+  })
+})
+
+describe('LaneList — deleting during a running season', () => {
+  it('explains the refusal and offers Swap instead of a dead button', async () => {
+    const user = userEvent.setup()
+    const props = actions()
+    render(<LaneList lanes={LANES} {...props} seasonRunning />)
+
+    await user.click(screen.getByLabelText('Delete Running'))
+
+    expect(screen.getByTestId('confirm-blocked')).toHaveTextContent(
+      /Can't delete during a running season/
+    )
+    expect(screen.getByTestId('confirm-alt')).toHaveTextContent('Use Swap')
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('never calls the delete action while a season is running', async () => {
+    const user = userEvent.setup()
+    const props = actions()
+    render(<LaneList lanes={LANES} {...props} seasonRunning />)
+
+    await user.click(screen.getByLabelText('Delete Running'))
+    await user.click(screen.getByTestId('confirm-alt'))
+
+    expect(props.deleteLane).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog')).toBeInTheDocument() // the swap modal
+  })
+
+  it('still deletes when no season is running', async () => {
+    const user = userEvent.setup()
+    const props = actions()
+    props.deleteLane.mockResolvedValue({ ok: true })
+    render(<LaneList lanes={LANES} {...props} />)
+
+    await user.click(screen.getByLabelText('Delete Running'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(props.deleteLane).toHaveBeenCalledWith('1')
+  })
+
+  it('surfaces a refusal that only the server knew about', async () => {
+    const user = userEvent.setup()
+    const props = actions()
+    props.deleteLane.mockResolvedValue({ ok: false, error: 'season-running' })
+    render(<LaneList lanes={LANES} {...props} />)
+
+    await user.click(screen.getByLabelText('Delete Running'))
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByTestId('confirm-blocked')).toHaveTextContent(
+      /Can't delete during a running season/
+    )
   })
 })

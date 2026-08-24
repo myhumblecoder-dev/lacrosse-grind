@@ -91,3 +91,65 @@ describe('streak', () => {
     expect(computeStreak(checkIns, todayMidnight)).toBe(2)
   })
 })
+describe('streak — freezes bridge a missed day', () => {
+  const d = (y: number, m: number, day: number) => new Date(Date.UTC(y, m, day))
+
+  it('a frozen day joins the run either side of it', () => {
+    const today = d(2023, 10, 10)
+    const checkIns = [
+      { date: d(2023, 10, 10), isRest: false },
+      // Oct 9 missed, covered by a freeze
+      { date: d(2023, 10, 8), isRest: false },
+      { date: d(2023, 10, 7), isRest: false },
+    ]
+
+    expect(computeStreak(checkIns, today)).toBe(1)
+    expect(computeStreak(checkIns, today, [d(2023, 10, 9)])).toBe(4)
+  })
+
+  it('the frozen day itself counts — a banked miss is guilt-free, not free', () => {
+    const today = d(2023, 10, 10)
+    const checkIns = [
+      { date: d(2023, 10, 10), isRest: false },
+      { date: d(2023, 10, 8), isRest: false },
+    ]
+
+    // Oct 10 + frozen Oct 9 + Oct 8
+    expect(computeStreak(checkIns, today, [d(2023, 10, 9)])).toBe(3)
+  })
+
+  it('two freezes bridge two missed days in a row', () => {
+    const today = d(2023, 10, 10)
+    const checkIns = [
+      { date: d(2023, 10, 10), isRest: false },
+      { date: d(2023, 10, 7), isRest: false },
+    ]
+
+    expect(computeStreak(checkIns, today, [d(2023, 10, 9)])).toBe(2)
+    expect(computeStreak(checkIns, today, [d(2023, 10, 9), d(2023, 10, 8)])).toBe(4)
+  })
+
+  it('a freeze cannot stand in for showing up today', () => {
+    const today = d(2023, 10, 10)
+    const checkIns = [{ date: d(2023, 10, 9), isRest: false }]
+
+    expect(computeStreak(checkIns, today, [d(2023, 10, 10)])).toBe(0)
+  })
+
+  it('a freeze on an unrelated day changes nothing', () => {
+    const today = d(2023, 10, 10)
+    const checkIns = [
+      { date: d(2023, 10, 10), isRest: false },
+      { date: d(2023, 10, 9), isRest: false },
+    ]
+
+    expect(computeStreak(checkIns, today, [d(2023, 5, 1)])).toBe(2)
+  })
+
+  it('a freeze dated in the future is ignored', () => {
+    const today = d(2023, 10, 10)
+    const checkIns = [{ date: d(2023, 10, 10), isRest: false }]
+
+    expect(computeStreak(checkIns, today, [d(2023, 10, 11)])).toBe(1)
+  })
+})

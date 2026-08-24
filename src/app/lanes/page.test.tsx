@@ -56,6 +56,7 @@ describe('Page', () => {
     expect(prisma.lane.findMany).toHaveBeenCalledWith({
       where: { userId: 'u1' },
       orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }],
+      include: { targetChanges: true },
     })
 
     expect(screen.getByText('Running')).toBeInTheDocument()

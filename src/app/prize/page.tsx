@@ -49,6 +49,11 @@ export default async function PrizePage() {
     where: { userId },
     select: {
       targetPerWeek: true,
+      // Each week is scored against the target that was in force THAT week, so
+      // raising a target now cannot un-qualify a week already earned.
+      targetChanges: {
+        select: { target: true, effectiveFrom: true },
+      },
       checkIns: {
         where: checkInWhere,
         select: {

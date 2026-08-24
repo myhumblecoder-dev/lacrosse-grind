@@ -1,10 +1,13 @@
 import { getWeekStart } from "@/lib/weekUtils";
+import { effectiveTarget } from "@/lib/effectiveTarget";
 
 export interface RecapLaneInput {
   id: string;
   name: string;
   emoji: string;
   targetPerWeek: number;
+  /** Effective-dated target changes; absent means the lane never changed. */
+  targetChanges?: { target: number; effectiveFrom: Date }[];
   isActive: boolean;
   sortOrder: number;
   checkIns: { date: Date; isRest: boolean }[];
@@ -99,7 +102,15 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
           emoji: ld.emoji,
           isActive: ld.isActive,
           hits: ld.hits,
-          target: lanes.find((l) => l.id === ld.id)!.targetPerWeek,
+          // History shows each week judged by its own target, not today's.
+          target: (() => {
+            const source = lanes.find((l) => l.id === ld.id)!;
+            return effectiveTarget(
+              source.targetChanges,
+              entry.weekStart,
+              source.targetPerWeek
+            );
+          })(),
           battleFought: ld.battleFought,
           days: ld.days.sort((a: RecapDay, b: RecapDay) => a.date.getTime() - b.date.getTime())
         }))

@@ -1,11 +1,15 @@
 import { prisma } from "@/lib/db"
 import { requireUserId } from "@/lib/tenancy"
 import { computeStreak } from "@/lib/streak"
+import { findRepairableGap } from "@/lib/repairableGap"
 import { getWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
 import { createCheckIn } from "@/app/actions/createCheckIn"
 import { deleteCheckIn } from "@/app/actions/deleteCheckIn"
 import CheckInCard from "@/components/CheckInCard"
+import LanePendingCard from "@/components/LanePendingCard"
+import { isLanePending } from "@/lib/lanePending"
+import { effectiveTarget } from "@/lib/effectiveTarget"
 import { WeeklyProgress } from "@/components/WeeklyProgress"
 import SeasonStartButton from "@/components/SeasonStartButton"
 import SeasonResetButton from "@/components/SeasonResetButton"
@@ -14,6 +18,8 @@ import SeasonTimelineNote from "@/components/SeasonTimelineNote"
 import { getSeasonReadiness } from "@/lib/seasonReadiness"
 import PlayerAvatarCard from "@/components/PlayerAvatarCard"
 import { FreezeBadge } from "@/components/FreezeBadge"
+import FreezeOffer from "@/components/FreezeOffer"
+import { spendFreeze } from "@/app/actions/spendFreeze"
 import { playerLevel } from "@/lib/playerLevel"
 import { requiredLanes } from "@/lib/laneRequirement"
 import Link from "next/link"
@@ -36,21 +42,34 @@ export default async function DashboardPage() {
   const rank = playerLevel(defeats)
   const demand = requiredLanes(rank.level)
   const readiness = getSeasonReadiness(activeLaneCount, Boolean(prize), demand)
-  const freezeRows = await prisma.streakFreeze.groupBy({
-    by: ["laneId"],
-    where: { usedDate: null, lane: { userId } },
-    _count: { _all: true },
-  })
-  const freezesByLane = new Map(freezeRows.map((r) => [r.laneId, r._count._all]))
   const hasStarted = Boolean(prize?.seasonStart)
 
-  const lanes = await prisma.lane.findMany({
+  // A streak runs across weeks, so it cannot be read from this week's rows
+  // alone — fetching only from Monday silently capped every streak at 7 and
+  // reset it each Monday. Bounded rather than unbounded: a run older than this
+  // is well past anything the badge or a freeze can act on.
+  const STREAK_WINDOW_DAYS = 400
+  const streakWindowStart = new Date(
+    today.getTime() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  )
+
+  const allLanes = await prisma.lane.findMany({
     where: { isActive: true, userId },
     orderBy: { sortOrder: "asc" },
     include: {
-      checkIns: { where: { date: { gte: weekStart } }, orderBy: { date: "asc" } },
+      checkIns: {
+        where: { date: { gte: streakWindowStart } },
+        orderBy: { date: "asc" },
+      },
+      targetChanges: true,
+      streakFreezes: true,
     },
   })
+
+  // Lanes that haven't reached their first week sort below the live ones, so
+  // the set he can actually train today reads first.
+  const lanes = allLanes.filter((l) => !isLanePending(l.startsOn, weekStart))
+  const pendingLanes = allLanes.filter((l) => isLanePending(l.startsOn, weekStart))
 
   return (
     <main className="max-w-2xl mx-auto space-y-6 p-6">
@@ -87,18 +106,33 @@ export default async function DashboardPage() {
 
       <h1 className="text-2xl font-bold">Today</h1>
       <p className="mt-1 text-sm text-zinc-500">Your daily check-in. Show up for each lane — effort and consistency are the only score, and rest days count too.</p>
-      {lanes.length === 0 && (
+      {allLanes.length === 0 && (
         <p className="text-zinc-500">No lanes yet — add one on the Lanes page.</p>
       )}
       {lanes.map((lane) => {
         const todayCheckIn = lane.checkIns.find(
           (c) => c.date.getTime() === today.getTime()
         )
-        const weeklyHits = lane.checkIns.length
-        const streak = computeStreak(
-          lane.checkIns.map((c) => ({ date: c.date, isRest: c.isRest })),
-          today
-        )
+        // The query now reaches back past Monday for the streak, so this
+        // week's tally has to be narrowed again here.
+        const weeklyHits = lane.checkIns.filter((c) => c.date >= weekStart).length
+
+        const history = lane.checkIns.map((c) => ({
+          date: c.date,
+          isRest: c.isRest,
+        }))
+        const frozenDates = lane.streakFreezes
+          .map((f) => f.usedDate)
+          .filter((d): d is Date => d !== null)
+        const freezesAvailable = lane.streakFreezes.filter(
+          (f) => f.usedDate === null
+        ).length
+
+        const streak = computeStreak(history, today, frozenDates)
+        const gap = findRepairableGap(history, today, frozenDates)
+        const streakIfRepaired = gap
+          ? computeStreak(history, today, [...frozenDates, gap])
+          : 0
 
         return (
           <div key={lane.id} className="space-y-2 rounded-lg border p-4">
@@ -119,15 +153,44 @@ export default async function DashboardPage() {
             />
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1">
-                <WeeklyProgress hits={weeklyHits} target={lane.targetPerWeek} />
+                <WeeklyProgress
+                  hits={weeklyHits}
+                  target={effectiveTarget(
+                    lane.targetChanges,
+                    weekStart,
+                    lane.targetPerWeek
+                  )}
+                />
               </div>
-              {(freezesByLane.get(lane.id) ?? 0) > 0 && (
-                <FreezeBadge availableFreezes={freezesByLane.get(lane.id) ?? 0} />
+              {freezesAvailable > 0 && (
+                <FreezeBadge availableFreezes={freezesAvailable} />
               )}
             </div>
+
+            {gap && (
+              <FreezeOffer
+                laneId={lane.id}
+                missedDate={gap.toISOString()}
+                streakIfRepaired={streakIfRepaired}
+                freezesAvailable={freezesAvailable}
+                spendFreeze={async (laneId, date) => {
+                  "use server"
+                  return spendFreeze(laneId, date)
+                }}
+              />
+            )}
           </div>
         )
       })}
+
+      {pendingLanes.map((lane) => (
+        <LanePendingCard
+          key={lane.id}
+          lane={{ name: lane.name, emoji: lane.emoji }}
+          startsOn={lane.startsOn!}
+        />
+      ))}
+
       {hasStarted && <SeasonResetButton />}
     </main>
   )

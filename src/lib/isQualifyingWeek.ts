@@ -1,4 +1,5 @@
 import { countQualifyingHits } from "@/lib/qualifyingWeek";
+import { effectiveTarget } from "@/lib/effectiveTarget";
 import { LANES_REQUIRED } from "@/lib/season";
 
 interface CheckIn {
@@ -9,6 +10,8 @@ interface CheckIn {
 interface Lane {
   targetPerWeek: number;
   checkIns: CheckIn[];
+  /** Effective-dated target changes; absent means the lane never changed. */
+  targetChanges?: { target: number; effectiveFrom: Date }[];
 }
 
 /**
@@ -20,7 +23,10 @@ export function isQualifyingWeek(lanes: Lane[], weekStart: Date): boolean {
 
   for (const lane of lanes) {
     const hits = countQualifyingHits(lane.checkIns, weekStart);
-    if (hits >= lane.targetPerWeek) {
+    // The target as it stood in THIS week, not as it stands today — a later
+    // edit must not re-score a week already finished.
+    const target = effectiveTarget(lane.targetChanges, weekStart, lane.targetPerWeek);
+    if (hits >= target) {
       qualifyingLanesCount++;
     }
   }
