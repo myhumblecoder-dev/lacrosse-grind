@@ -7,8 +7,8 @@ describe('playerLevel', () => {
       [0, 'baby'],
       [1, 'toddler'],
       [2, 'tween'],
-      [3, 'squire'],
-      [5, 'page'],
+      [3, 'page'],
+      [5, 'squire'],
       [8, 'knight'],
       [13, 'barbarian'],
       [21, 'warlord'],
@@ -29,11 +29,11 @@ describe('playerLevel', () => {
     expect(baby.nextAt).toBe(1)
     expect(baby.progress).toBe(0)
 
-    // 5 -> level 4 'page', nextAt 8, progress 0
-    const page = playerLevel(5)
-    expect(page.level).toBe(4)
-    expect(page.nextAt).toBe(8)
-    expect(page.progress).toBe(0)
+    // 5 -> level 4 'squire', nextAt 8, progress 0
+    const squire = playerLevel(5)
+    expect(squire.level).toBe(4)
+    expect(squire.nextAt).toBe(8)
+    expect(squire.progress).toBe(0)
 
     // 6 -> level 4, progress 1/3 (6 is 1 step into the 5->8 band)
     const progressMid = playerLevel(6)
