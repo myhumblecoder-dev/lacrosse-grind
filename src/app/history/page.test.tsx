@@ -139,6 +139,50 @@ describe('Page', () => {
     expect(screen.queryByText(/Empty Retired Lane/)).not.toBeInTheDocument()
   })
 
+  it('only the day the boss fell is purple, not the whole week', async () => {
+    // The case the old test could not see: with a single check-in day, "every
+    // day purple" and "the boss day purple" look identical. Five days apart
+    // they do not, and beating a boss used to repaint the whole week.
+    const { prisma } = await import('@/lib/db')
+    const monday = new Date('2026-08-17T00:00:00.000Z')
+    const friday = new Date('2026-08-21T00:00:00.000Z')
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
+        bossBattles: [{ weekStarting: getWeekStart(monday), completedAt: friday }],
+        checkIns: [
+          { date: monday, isRest: false },
+          { date: new Date('2026-08-18T00:00:00.000Z'), isRest: false },
+          { date: new Date('2026-08-19T00:00:00.000Z'), isRest: false },
+          { date: new Date('2026-08-20T00:00:00.000Z'), isRest: false },
+          { date: friday, isRest: false },
+        ],
+      },
+    ] as any)
+
+    const { container } = render(await Page())
+
+    expect(container.querySelectorAll('.bg-purple-500')).toHaveLength(1)
+    expect(container.querySelectorAll('.bg-green-400')).toHaveLength(4)
+  })
+
+  it('a boss beaten at a time of day still matches its calendar day', async () => {
+    const { prisma } = await import('@/lib/db')
+    const day = new Date('2026-08-18T00:00:00.000Z')
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: 'l1', name: 'Jogs', emoji: '🏃', isActive: true, targetPerWeek: 5, sortOrder: 0,
+        // Beaten at 7pm, while the check-in is stored at UTC midnight.
+        bossBattles: [{ weekStarting: getWeekStart(day), completedAt: new Date('2026-08-18T19:32:00.000Z') }],
+        checkIns: [{ date: day, isRest: false }],
+      },
+    ] as any)
+
+    const { container } = render(await Page())
+
+    expect(container.querySelectorAll('.bg-purple-500')).toHaveLength(1)
+  })
+
   it('a session inside a battle week is purple', async () => {
     const { prisma } = await import('@/lib/db')
     const day = new Date('2026-08-18T00:00:00.000Z')
