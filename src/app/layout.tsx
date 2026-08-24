@@ -37,7 +37,10 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-zinc-950 text-zinc-100">
-        <AppShell account={<AccountControl signedIn={Boolean(session?.user)} />}>
+        <AppShell
+          signedIn={Boolean(session?.user)}
+          account={<AccountControl signedIn={Boolean(session?.user)} />}
+        >
           {children}
         </AppShell>
       </body>

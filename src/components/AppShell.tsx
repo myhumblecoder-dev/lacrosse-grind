@@ -8,9 +8,11 @@ interface AppShellProps {
   children: React.ReactNode
   /** Sign in / sign out, resolved on the server and rendered top right. */
   account?: React.ReactNode
+  /** Whether there is an account to manage — the nav hides what there is not. */
+  signedIn?: boolean
 }
 
-export default function AppShell({ children, account }: AppShellProps) {
+export default function AppShell({ children, account, signedIn = false }: AppShellProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   
@@ -50,7 +52,7 @@ export default function AppShell({ children, account }: AppShellProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <SidebarNav />
+        <SidebarNav signedIn={signedIn} />
       </aside>
 
       {/* min-w-0 keeps a wide child (the history heatmap, a long coach note)
