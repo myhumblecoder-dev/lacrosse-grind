@@ -34,8 +34,8 @@ describe('rerollBossChallenge', () => {
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 
-  it('a knight gets a second re-roll where a page does not', async () => {
-    // Knight (level 5+) gets 2 rerolls. We set defeats to 10 so rank is Knight.
+  it('a captain gets a second re-roll where a hatchling does not', async () => {
+    // Level 5+ gets 2 rerolls. We set defeats to 10, so the rank is captain.
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(10)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
       id: 'b1',
@@ -55,7 +55,7 @@ describe('rerollBossChallenge', () => {
   })
 
   it('the allowance exhausts to already-rerolled', async () => {
-    // Page (level < 5) gets 1 reroll. We set rerollCount to 1.
+    // Below level 5 gets 1 reroll (0 defeats is hatchling). rerollCount is 1.
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
       id: 'b1',
@@ -71,7 +71,7 @@ describe('rerollBossChallenge', () => {
   })
 
   it('the reroll prompt addresses the rank', async () => {
-    // Knight (level 5+) rank name is 'Knight'
+    // 10 defeats is level 5, whose rank name is 'captain'
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(10)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
       id: 'b1',
@@ -83,10 +83,10 @@ describe('rerollBossChallenge', () => {
 
     await rerollBossChallenge('b1')
 
-    // buildChallengePrompt is real, so we check if it was called with 'Knight'
+    // buildChallengePrompt is real, so we check it was called with 'captain'
     // Since we can't spy on the pure function directly without mocking, 
     // we verify the result of the logic via the generate call's arguments.
-    expect(askCoach).toHaveBeenCalledWith(expect.any(String), expect.any(String), buildChallengePrompt('Running', '🏃', 'knight'))
+    expect(askCoach).toHaveBeenCalledWith(expect.any(String), expect.any(String), buildChallengePrompt('Running', '🏃', 'captain'))
   })
 }) 
 describe('rerollBossChallenge — the path that had no cap at all', () => {

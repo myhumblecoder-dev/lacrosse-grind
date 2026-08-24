@@ -61,7 +61,7 @@ describe('startSeason', () => {
   it('fewer than three lanes throws before touching the prize', async () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(2)
 
-    await expect(startSeason()).rejects.toThrow('Your baby demands 3 active lanes before the season starts')
+    await expect(startSeason()).rejects.toThrow('Your hatchling demands 3 active lanes before the season starts')
     expect(prisma.prize.findUnique).not.toHaveBeenCalled()
   })
 
@@ -92,10 +92,9 @@ describe('startSeason', () => {
     expect(result.seasonStart.getUTCDate()).toBe(20)
   })
 
-  it('a squire-level player is blocked at 3 lanes with the demand named', async () => {
-    // Squire level requires more than 3 lanes (e.g. 5)
-    // We simulate enough defeats to reach squire level, but not enough active lanes
-    // Let's assume squire level is reached at 10 defeats, and requires 5 lanes.
+  it('a captain-level player is blocked at 3 lanes with the demand named', async () => {
+    // 10 defeats is captain (threshold 8), which requires more than 3 lanes.
+    // We simulate enough defeats to reach it, but not enough active lanes.
     // We'll mock count to return 3 active lanes, but 10 defeats.
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(10)
@@ -138,8 +137,8 @@ describe('startSeason', () => {
     }
   })
 
-  it('a baby-level player starts at 3 lanes as before', async () => {
-    // Baby level (0 defeats) requires 3 lanes (as per AC 'as before')
+  it('a hatchling-level player starts at 3 lanes as before', async () => {
+    // Hatchling level (0 defeats) requires 3 lanes (as per AC 'as before')
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'p1', userId } as any)
