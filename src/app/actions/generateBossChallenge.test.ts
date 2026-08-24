@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { generateBossChallenge } from './generateBossChallenge'
 import { requireUserId } from '@/lib/tenancy'
-import { generate } from '@/lib/llm'
+import { askCoach } from '@/lib/coach'
 import { revalidatePath } from 'next/cache'
 import { playerLevel } from '@/lib/playerLevel'
 import { buildChallengePrompt } from '@/lib/bossChallenge'
@@ -22,7 +22,7 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
-vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))
+vi.mock('@/lib/coach', () => ({ askCoach: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 describe('generateBossChallenge', () => {
@@ -45,7 +45,7 @@ describe('generateBossChallenge', () => {
     expect(prisma.lane.findFirst).toHaveBeenCalledWith({
       where: { id: laneId, userId }
     })
-    expect(generate).not.toHaveBeenCalled()
+    expect(askCoach).not.toHaveBeenCalled()
   })
 
   it('an existing challenge is returned without a new generation', async () => {
@@ -63,7 +63,7 @@ describe('generateBossChallenge', () => {
     const result = await generateBossChallenge(laneId, weekStarting)
 
     expect(result).toEqual({ ok: true, challenge: 'Existing Challenge' })
-    expect(generate).not.toHaveBeenCalled()
+    expect(askCoach).not.toHaveBeenCalled()
   })
 
   it('a fresh unlock generates and stores the challenge', async () => {
@@ -80,13 +80,13 @@ describe('generateBossChallenge', () => {
 
     vi.mocked(prisma.bossBattle.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
-    vi.mocked(generate).mockResolvedValue(generatedTokens)
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: generatedTokens })
     vi.mocked(prisma.bossBattle.upsert).mockResolvedValue({} as any)
 
     const result = await generateBossChallenge(laneId, weekStarting)
 
     expect(result).toEqual({ ok: true, challenge: generatedText })
-    expect(generate).toHaveBeenCalled()
+    expect(askCoach).toHaveBeenCalled()
     expect(prisma.bossBattle.upsert).toHaveBeenCalledWith({
       where: { laneId_weekStarting: { laneId, weekStarting } },
       update: { challenge: generatedText },
@@ -116,7 +116,7 @@ describe('generateBossChallenge', () => {
     vi.mocked(prisma.bossBattle.count)
       .mockResolvedValueOnce(5)
       .mockResolvedValueOnce(0)
-    vi.mocked(generate).mockResolvedValue(generatedText)
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: generatedText })
     vi.mocked(prisma.bossBattle.upsert).mockResolvedValue({} as any)
 
     const result = await generateBossChallenge(laneId, weekStarting)

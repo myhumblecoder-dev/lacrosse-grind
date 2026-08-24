@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/tenancy";
-import { generate } from "@/lib/llm";
+import { askCoach } from "@/lib/coach";
 import { revalidatePath } from "next/cache";
 import { playerLevel } from "@/lib/playerLevel";
 import { buildVictorySummaryPrompt } from "@/lib/victorySummary";
@@ -78,20 +78,23 @@ export async function completeBossBattle(battleId: string): Promise<{
   const newLevel = now.level;
   const levelName = now.name;
 
-  // 3. Generate coach note
-  let coachNote: string | null = null;
-  try {
-    coachNote = await generate(buildVictorySummaryPrompt({
+  // 3. Generate coach note.
+  //
+  // A budget refusal takes the same path as a failure: the boss is already
+  // beaten, and losing that because the coach was out of credit would take
+  // back something earned. COMPLETING MUST NEVER FAIL BECAUSE THE LLM DID.
+  const answer = await askCoach(
+    userId,
+    "victory",
+    buildVictorySummaryPrompt({
       laneName: battle.lane.name,
       challenge: battle.challenge ?? 'the weekly challenge',
       defeats,
       levelName: levelName,
       leveledUp
-    }));
-  } catch (err) {
-    // COMPLETING MUST NEVER FAIL BECAUSE THE LLM DID.
-    coachNote = null;
-  }
+    })
+  );
+  const coachNote: string | null = answer.ok ? answer.text : null;
 
   // 4. Save note if generated
   if (coachNote !== null) {

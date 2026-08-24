@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { completeBossBattle } from '@/app/actions/completeBossBattle'
 import { requireUserId } from '@/lib/tenancy'
-import { generate } from '@/lib/llm'
+import { askCoach } from '@/lib/coach'
 import { revalidatePath } from 'next/cache'
 import { playerLevel } from '@/lib/playerLevel'
 import { buildVictorySummaryPrompt } from '@/lib/victorySummary'
@@ -22,7 +22,7 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
-vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))
+vi.mock('@/lib/coach', () => ({ askCoach: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 describe('completeBossBattle', () => {
@@ -51,7 +51,7 @@ describe('completeBossBattle', () => {
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(5)
-    vi.mocked(generate).mockResolvedValue('Great job!')
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'Great job!' })
 
     const res = await completeBossBattle(battleId)
 
@@ -72,7 +72,7 @@ describe('completeBossBattle', () => {
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(4)
-    vi.mocked(generate).mockResolvedValue('Great job!')
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'Great job!' })
 
     const res = await completeBossBattle(battleId)
 
@@ -91,7 +91,7 @@ describe('completeBossBattle', () => {
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(1)
-    vi.mocked(generate).mockResolvedValue('Nice work!')
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'Nice work!' })
 
     const res = await completeBossBattle(battleId)
 
@@ -103,7 +103,7 @@ describe('completeBossBattle', () => {
       leveledUp: playerLevel(1).level > playerLevel(0).level
     })
 
-    expect(generate).toHaveBeenCalledWith(expect.stringContaining(expectedPrompt))
+    expect(askCoach).toHaveBeenCalledWith(expect.any(String), 'victory', expect.stringContaining(expectedPrompt))
     expect(revalidatePath).toHaveBeenCalledWith('/')
     expect(revalidatePath).toHaveBeenCalledWith('/boss-battles')
     expect(res.ok).toBe(true)
@@ -119,7 +119,7 @@ describe('completeBossBattle', () => {
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(5) // Level up threshold
-    vi.mocked(generate).mockResolvedValue('Great job!')
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'Great job!' })
 
     await completeBossBattle(battleId)
 
@@ -138,10 +138,60 @@ describe('completeBossBattle', () => {
     }
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(battle as any)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(4) // No level up
-    vi.mocked(generate).mockResolvedValue('Great job!')
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'Great job!' })
 
     await completeBossBattle(battleId)
 
     expect(prisma.streakFreeze.create).not.toHaveBeenCalled()
+  })
+})
+
+describe('completeBossBattle — the coach running dry must not cost a victory', () => {
+  const userId = 'u1'
+  const battleId = 'b1'
+  const laneId = 'l1'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(1)
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: laneId, userId } as any)
+    vi.mocked(prisma.streakFreeze.create).mockResolvedValue({ id: 'fz' } as any)
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
+      id: battleId, laneId, challenge: 'burpees',
+      completedAt: null as unknown as Date,
+      lane: { name: 'Wall ball', userId, id: laneId },
+    } as any)
+  })
+
+  it('records the win when the budget is spent', async () => {
+    // The boss is already beaten. Losing that because the coach was out of
+    // credit would take back something earned.
+    vi.mocked(askCoach).mockResolvedValue({ ok: false, error: 'coach-limit' })
+
+    const res = await completeBossBattle(battleId)
+
+    expect(res).toMatchObject({ ok: true, coachNote: null })
+    expect(prisma.bossBattle.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ completedAt: expect.any(Date) }) })
+    )
+  })
+
+  it('still banks the level-up freeze when the coach is unavailable', async () => {
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(5) // crosses a threshold
+    vi.mocked(askCoach).mockResolvedValue({ ok: false, error: 'coach-limit' })
+
+    const res = await completeBossBattle(battleId)
+
+    expect(res).toMatchObject({ ok: true, leveledUp: true })
+    expect(prisma.streakFreeze.create).toHaveBeenCalled()
+  })
+
+  it('asks the coach as the victory kind, so spend is attributable', async () => {
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'Well won.' })
+
+    await completeBossBattle(battleId)
+
+    expect(askCoach).toHaveBeenCalledWith(userId, 'victory', expect.any(String))
   })
 })
