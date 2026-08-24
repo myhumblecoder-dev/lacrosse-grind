@@ -6,6 +6,8 @@ export type WeekStatus = "qualified" | "missed" | "current" | "upcoming";
 interface LaneData {
   targetPerWeek: number;
   checkIns: { date: Date; isRest: boolean }[];
+  /** Effective-dated target changes, passed through to isQualifyingWeek. */
+  targetChanges?: { target: number; effectiveFrom: Date }[];
 }
 
 export function getWeekStatuses(

@@ -10,15 +10,22 @@ import { playerLevel } from "@/lib/playerLevel"
 import { requiredLanes } from "@/lib/laneRequirement"
 import LaneList from "@/components/LaneList"
 import LaneForm from "@/components/LaneForm"
+import { getWeekStart } from "@/lib/weekUtils"
+import { getTrainingDay } from "@/lib/trainingDay"
 
 export const dynamic = "force-dynamic"
 
 export default async function LanesPage() {
   const userId = await requireUserId()
+  const weekStart = getWeekStart(getTrainingDay(new Date()))
   const lanes = await prisma.lane.findMany({
     where: { userId },
     orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }],
+    include: { targetChanges: true },
   })
+  // A running season refuses lane deletes, so the page says so up front rather
+  // than letting the confirm button do nothing.
+  const prize = await prisma.prize.findUnique({ where: { userId } })
 
   // The floor of three governs every lane change, so the page decides once
   // what is legal right now and hands the answer down.
@@ -41,6 +48,8 @@ export default async function LanesPage() {
       </p>
       <LaneList
         lanes={lanes}
+        weekStart={weekStart}
+        seasonRunning={Boolean(prize?.seasonStart)}
         updateLane={async (id, patch) => {
           "use server"
           return updateLane(id, patch)

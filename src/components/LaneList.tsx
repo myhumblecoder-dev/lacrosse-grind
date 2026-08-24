@@ -2,6 +2,9 @@
 
 import { useState } from "react"
 import { LANES_REQUIRED } from "@/lib/season"
+import { isLanePending } from "@/lib/lanePending"
+import { formatWeekLabel } from "@/lib/weekUtils"
+import { effectiveTarget } from "@/lib/effectiveTarget"
 import ToggleSwitch from "@/components/ToggleSwitch"
 import ConfirmModal from "@/components/ConfirmModal"
 import LaneSwapModal from "@/components/LaneSwapModal"
@@ -13,6 +16,10 @@ interface Lane {
   emoji: string
   isActive: boolean
   targetPerWeek: number
+  /** Absent or null means the lane has always been running. */
+  startsOn?: Date | null
+  /** Effective-dated target changes; a future one is shown as scheduled. */
+  targetChanges?: { target: number; effectiveFrom: Date }[]
 }
 
 interface LaneListProps {
@@ -27,6 +34,22 @@ interface LaneListProps {
   requiredLanes?: number
   swapState: { mustPickReplacement: boolean; canRetire: boolean; blocked: boolean }
   inactiveLanes: { id: string; name: string; emoji: string }[]
+  /** Monday of the current week — decides which lanes are still queued. */
+  weekStart: Date
+  /** A running season refuses deletes; the lane must be retired via Swap. */
+  seasonRunning?: boolean
+}
+
+/** The soonest target change that has not taken effect yet, if any. */
+function nextChange(lane: Lane, weekStart: Date) {
+  const upcoming = (lane.targetChanges ?? [])
+    .filter((c) => c.effectiveFrom.getTime() > weekStart.getTime())
+    .sort((a, b) => a.effectiveFrom.getTime() - b.effectiveFrom.getTime())
+  return upcoming[0] ?? null
+}
+
+function scheduledTarget(lane: Lane, weekStart: Date) {
+  return nextChange(lane, weekStart)?.target ?? null
 }
 
 const EMOJI_OPTIONS: { cp: number; label: string }[] = [
@@ -52,16 +75,28 @@ export default function LaneList({
   swapState,
   inactiveLanes,
   requiredLanes,
+  weekStart,
+  seasonRunning = false,
 }: LaneListProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState({ name: "", emoji: "", targetPerWeek: 5 })
   const [confirmLane, setConfirmLane] = useState<Lane | null>(null)
+  // Set only when the server refuses a delete we thought was allowed.
+  const [deleteBlocked, setDeleteBlocked] = useState<Lane | null>(null)
   // One modal shared by every row: `swapLane` is the lane being traded out.
   const [swapLane, setSwapLane] = useState<Lane | null>(null)
 
   function startEdit(lane: Lane) {
     setEditingId(lane.id)
-    setDraft({ name: lane.name, emoji: lane.emoji, targetPerWeek: lane.targetPerWeek })
+    setDraft({
+      name: lane.name,
+      emoji: lane.emoji,
+      // Seed with the queued target if one is waiting, so reopening the form
+      // shows what the lane is becoming rather than what it is leaving behind.
+      targetPerWeek:
+        scheduledTarget(lane, weekStart) ??
+        effectiveTarget(lane.targetChanges, weekStart, lane.targetPerWeek),
+    })
   }
 
   async function saveEdit(id: string) {
@@ -153,7 +188,27 @@ export default function LaneList({
                   </span>
                   <div>
                     <div className="font-medium text-zinc-100">{lane.name}</div>
-                    <div className="text-xs text-zinc-500">{lane.targetPerWeek}×/week</div>
+                    <div className="text-xs text-zinc-500">
+                      {effectiveTarget(lane.targetChanges, weekStart, lane.targetPerWeek)}
+                      ×/week
+                    </div>
+                    {scheduledTarget(lane, weekStart) !== null && (
+                      <div
+                        data-testid={`lane-target-scheduled-${lane.id}`}
+                        className="text-xs text-purple-300"
+                      >
+                        → {scheduledTarget(lane, weekStart)}×/week from{" "}
+                        {formatWeekLabel(nextChange(lane, weekStart)!.effectiveFrom)}
+                      </div>
+                    )}
+                    {lane.isActive && isLanePending(lane.startsOn, weekStart) && (
+                      <div
+                        data-testid={`lane-starts-${lane.id}`}
+                        className="text-xs text-purple-300"
+                      >
+                        starts {formatWeekLabel(lane.startsOn!)}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -198,11 +253,48 @@ export default function LaneList({
         title={confirmLane ? `Delete "${confirmLane.name}"?` : ""}
         message="This also removes its check-ins and boss battles."
         confirmLabel="Delete"
-        onConfirm={() => {
-          if (confirmLane) deleteLane(confirmLane.id)
+        blocked={seasonRunning}
+        blockedMessage={
+          "Can't delete during a running season — its check-ins are part of " +
+          "your season record. Use Swap to retire it instead."
+        }
+        altLabel="Use Swap"
+        onAlt={() => {
+          setSwapLane(confirmLane)
           setConfirmLane(null)
         }}
+        onConfirm={async () => {
+          const lane = confirmLane
+          setConfirmLane(null)
+          if (!lane) return
+          // The pre-emptive block above can go stale if a season starts in
+          // another tab, so the action's own refusal is honoured too rather
+          // than the click quietly doing nothing.
+          const result = (await deleteLane(lane.id)) as
+            | { ok: boolean; error?: string }
+            | undefined
+          if (result && !result.ok && result.error === "season-running") {
+            setDeleteBlocked(lane)
+          }
+        }}
         onCancel={() => setConfirmLane(null)}
+      />
+
+      <ConfirmModal
+        open={deleteBlocked !== null}
+        title={deleteBlocked ? `Delete "${deleteBlocked.name}"?` : ""}
+        blocked
+        blockedMessage={
+          "Can't delete during a running season — its check-ins are part of " +
+          "your season record. Use Swap to retire it instead."
+        }
+        altLabel="Use Swap"
+        onAlt={() => {
+          setSwapLane(deleteBlocked)
+          setDeleteBlocked(null)
+        }}
+        onConfirm={() => setDeleteBlocked(null)}
+        onCancel={() => setDeleteBlocked(null)}
       />
 
       {swapLane && (

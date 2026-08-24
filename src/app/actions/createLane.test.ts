@@ -35,9 +35,48 @@ describe('createLane', () => {
       data: {
         ...input,
         sortOrder: 0,
-        userId: 'u1'
+        userId: 'u1',
+        startsOn: expect.any(Date)
       }
     })
+  })
+
+  it('a lane added mid-week starts on the coming Monday', async () => {
+    vi.useFakeTimers()
+    // Sunday — the last day of the week, when a fresh 5-a-week target would
+    // otherwise be unreachable the moment it is created.
+    vi.setSystemTime(new Date('2026-08-23T18:00:00.000Z'))
+    vi.mocked(prisma.lane.create).mockResolvedValue({ id: 'lane-1' } as any)
+
+    await createLane({ name: 'Squats', emoji: '🏋', targetPerWeek: 5 })
+
+    const data = vi.mocked(prisma.lane.create).mock.calls[0][0].data as {
+      startsOn: Date
+    }
+    expect(data.startsOn.toISOString()).toBe('2026-08-24T00:00:00.000Z')
+    vi.useRealTimers()
+  })
+
+  it('a lane added on a Monday starts that same Monday', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-24T18:00:00.000Z'))
+    vi.mocked(prisma.lane.create).mockResolvedValue({ id: 'lane-1' } as any)
+
+    await createLane({ name: 'Squats', emoji: '🏋', targetPerWeek: 5 })
+
+    const data = vi.mocked(prisma.lane.create).mock.calls[0][0].data as {
+      startsOn: Date
+    }
+    expect(data.startsOn.toISOString()).toBe('2026-08-24T00:00:00.000Z')
+    vi.useRealTimers()
+  })
+
+  it('adding a lane refreshes Today, not just the Lanes page', async () => {
+    vi.mocked(prisma.lane.create).mockResolvedValue({ id: 'lane-1' } as any)
+
+    await createLane({ name: 'Squats', emoji: '🏋', targetPerWeek: 5 })
+
+    expect(revalidatePath).toHaveBeenCalledWith('/')
   })
 
   it('valid input creates lane and returns ok', async () => {

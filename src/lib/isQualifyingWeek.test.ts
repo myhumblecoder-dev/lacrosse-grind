@@ -72,3 +72,31 @@ describe('isQualifyingWeek', () => {
     expect(isQualifyingWeek(lanes, WEEK_START)).toBe(false)
   })
 })
+
+describe('isQualifyingWeek — a lane added mid-season', () => {
+  // Eddie's real shape: three lanes carrying the week, plus a fourth he only
+  // just added. The fourth has no check-ins because it has not started yet.
+  const threeCarrying = [
+    { targetPerWeek: 1, checkIns: [{ date: CHECK_IN_DATE, isRest: false }] },
+    { targetPerWeek: 1, checkIns: [{ date: CHECK_IN_DATE, isRest: false }] },
+    { targetPerWeek: 1, checkIns: [{ date: CHECK_IN_DATE, isRest: false }] },
+  ]
+
+  it('cannot drag down a week the established lanes already earned', () => {
+    const withNewLane = [...threeCarrying, { targetPerWeek: 5, checkIns: [] }]
+
+    expect(isQualifyingWeek(threeCarrying, WEEK_START)).toBe(true)
+    expect(isQualifyingWeek(withNewLane, WEEK_START)).toBe(true)
+  })
+
+  it('leaves the verdict unchanged however many empty lanes are added', () => {
+    const withThreeNewLanes = [
+      ...threeCarrying,
+      { targetPerWeek: 5, checkIns: [] },
+      { targetPerWeek: 5, checkIns: [] },
+      { targetPerWeek: 5, checkIns: [] },
+    ]
+
+    expect(isQualifyingWeek(withThreeNewLanes, WEEK_START)).toBe(true)
+  })
+})

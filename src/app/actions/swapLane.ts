@@ -7,6 +7,8 @@ import { validateSwap } from '@/lib/validateSwap'
 import { requireUserId } from '@/lib/tenancy'
 import { playerLevel } from '@/lib/playerLevel'
 import { requiredLanes } from '@/lib/laneRequirement'
+import { resolveSeasonStart } from '@/lib/seasonAnchor'
+import { getTrainingDay } from '@/lib/trainingDay'
 
 type SwapResult = { ok: true } | { ok: false; error: string }
 
@@ -61,9 +63,15 @@ export async function swapLane(input: unknown): Promise<SwapResult> {
   }
 
   if (inLaneId) {
+    // The lane coming in starts on the Monday on or after today. Swapping on a
+    // Friday must not hand it a two-day week it cannot win.
+    const startsOn = resolveSeasonStart(getTrainingDay(new Date()))
     await prisma.$transaction([
       prisma.lane.update({ where: { id: outLaneId }, data: { isActive: false } }),
-      prisma.lane.update({ where: { id: inLaneId }, data: { isActive: true } }),
+      prisma.lane.update({
+        where: { id: inLaneId },
+        data: { isActive: true, startsOn },
+      }),
     ])
   } else {
     await prisma.lane.update({
