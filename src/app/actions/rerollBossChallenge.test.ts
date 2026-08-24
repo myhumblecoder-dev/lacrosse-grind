@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { rerollBossChallenge } from './rerollBossChallenge'
 import { requireUserId } from '@/lib/tenancy'
-import { generate } from '@/lib/llm'
+import { askCoach } from '@/lib/coach'
 import { revalidatePath } from 'next/cache'
 import { playerLevel } from '@/lib/playerLevel'
 import { buildChallengePrompt } from '@/lib/bossChallenge'
@@ -22,7 +22,7 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
-vi.mock('@/lib/llm', () => ({ generate: vi.fn() }))
+vi.mock('@/lib/coach', () => ({ askCoach: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 describe('rerollBossChallenge', () => {
@@ -43,7 +43,7 @@ describe('rerollBossChallenge', () => {
       completedAt: null,
       lane: { name: 'Running', emoji: '🏃', userId: 'u1' },
     } as any)
-    vi.mocked(generate).mockResolvedValue('New Challenge')
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'New Challenge' })
 
     const res = await rerollBossChallenge('b1')
 
@@ -67,7 +67,7 @@ describe('rerollBossChallenge', () => {
     const res = await rerollBossChallenge('b1')
 
     expect(res).toEqual({ ok: false, error: 'already-rerolled' })
-    expect(generate).not.toHaveBeenCalled()
+    expect(askCoach).not.toHaveBeenCalled()
   })
 
   it('the reroll prompt addresses the rank', async () => {
@@ -79,13 +79,47 @@ describe('rerollBossChallenge', () => {
       completedAt: null,
       lane: { name: 'Running', emoji: '🏃', userId: 'u1' },
     } as any)
-    vi.mocked(generate).mockResolvedValue('New Challenge')
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'New Challenge' })
 
     await rerollBossChallenge('b1')
 
     // buildChallengePrompt is real, so we check if it was called with 'Knight'
     // Since we can't spy on the pure function directly without mocking, 
     // we verify the result of the logic via the generate call's arguments.
-    expect(generate).toHaveBeenCalledWith(buildChallengePrompt('Running', '🏃', 'knight'))
+    expect(askCoach).toHaveBeenCalledWith(expect.any(String), expect.any(String), buildChallengePrompt('Running', '🏃', 'knight'))
   })
 }) 
+describe('rerollBossChallenge — the path that had no cap at all', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('refuses when the budget is spent, and writes nothing', async () => {
+    // This action called generate() directly with no limit of any kind while
+    // sign-ups were open and the API key was live.
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
+      id: 'b1', rerollCount: 0, completedAt: null,
+      lane: { name: 'Wall ball', emoji: '🥍' },
+    } as any)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+    vi.mocked(askCoach).mockResolvedValue({ ok: false, error: 'coach-limit' })
+
+    const result = await rerollBossChallenge('b1')
+
+    expect(result).toEqual({ ok: false, error: 'coach-limit' })
+    expect(prisma.bossBattle.update).not.toHaveBeenCalled()
+  })
+
+  it('asks as the reroll kind, so the spend is attributable', async () => {
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
+      id: 'b1', rerollCount: 0, completedAt: null,
+      lane: { name: 'Wall ball', emoji: '🥍' },
+    } as any)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+    vi.mocked(askCoach).mockResolvedValue({ ok: true, text: 'New Challenge' })
+
+    await rerollBossChallenge('b1')
+
+    expect(askCoach).toHaveBeenCalledWith('u1', 'reroll', expect.any(String))
+  })
+})

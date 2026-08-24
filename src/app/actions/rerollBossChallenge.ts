@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/tenancy";
-import { generate } from "@/lib/llm";
+import { askCoach } from "@/lib/coach";
 import { buildChallengePrompt } from "@/lib/bossChallenge";
 import { revalidatePath } from "next/cache";
 import { playerLevel } from "@/lib/playerLevel";
@@ -35,7 +35,15 @@ export async function rerollBossChallenge(battleId: string): Promise<{ ok: true;
     return { ok: false, error: 'already-rerolled' };
   }
 
-  const challenge = await generate(buildChallengePrompt(battle.lane.name, battle.lane.emoji, rank.name));
+  const answer = await askCoach(
+    userId,
+    "reroll",
+    buildChallengePrompt(battle.lane.name, battle.lane.emoji, rank.name)
+  );
+  if (!answer.ok) {
+    return { ok: false, error: answer.error };
+  }
+  const challenge = answer.text;
 
   await prisma.bossBattle.update({
     where: { id: battleId },
