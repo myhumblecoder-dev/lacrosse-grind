@@ -293,3 +293,72 @@ describe('Page — the freeze offer', () => {
     expect(include.checkIns.where.date.gte.getTime()).toBeLessThan(weekStart.getTime())
   })
 })
+
+describe('Page — the bar counts what the season counts', () => {
+  const day = (iso: string) => new Date(iso + 'T00:00:00.000Z')
+  const TODAY = '2026-08-23' // Sunday, so the whole week is in range
+
+  const laneWith = (checkIns: { date: Date; isRest: boolean }[]) => [{
+    id: 'l1', name: 'Wall ball', emoji: '🥍', targetPerWeek: 3,
+    isActive: true, sortOrder: 0, startsOn: null, targetChanges: [],
+    checkIns, streakFreezes: [],
+  }]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(TODAY + 'T18:00:00.000Z'))
+    vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(prisma.lane.count).mockResolvedValue(3)
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
+  })
+
+  afterEach(() => vi.useRealTimers())
+
+  it('caps rest days the way the prize grid does', async () => {
+    // Three rest days and nothing else. The season counts that as one hit,
+    // so a target of three is NOT met — the bar used to read 3 / 3 and call
+    // it done while the Prize grid scored the same week as missed.
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(
+      laneWith([
+        { date: day('2026-08-17'), isRest: true },
+        { date: day('2026-08-18'), isRest: true },
+        { date: day('2026-08-19'), isRest: true },
+      ]) as never
+    )
+
+    render(await Page())
+
+    expect(screen.getByText('1 / 3 days this week')).toBeInTheDocument()
+  })
+
+  it('still gives a single rest day full credit', async () => {
+    // Rest counts — it is only the second one in a week that does not.
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(
+      laneWith([
+        { date: day('2026-08-17'), isRest: false },
+        { date: day('2026-08-18'), isRest: true },
+        { date: day('2026-08-19'), isRest: false },
+      ]) as never
+    )
+
+    render(await Page())
+
+    expect(screen.getByText('3 / 3 days this week')).toBeInTheDocument()
+  })
+
+  it('counts only this week, not the streak window behind it', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue(
+      laneWith([
+        { date: day('2026-08-10'), isRest: false }, // last week
+        { date: day('2026-08-11'), isRest: false }, // last week
+        { date: day('2026-08-18'), isRest: false },
+      ]) as never
+    )
+
+    render(await Page())
+
+    expect(screen.getByText('1 / 3 days this week')).toBeInTheDocument()
+  })
+})
