@@ -7,7 +7,7 @@ export type PlayerLevel = {
    * Fraction through the CURRENT band. Nothing renders this, on purpose: the
    * first three bands are one boss wide, so it is pinned at 0 for every new
    * player. The avatar card draws a pip per evolution instead. Wiring this to
-   * a progress bar puts back a bar that cannot fill until squire.
+   * a progress bar puts back a bar that cannot fill until raider.
    */
   progress: number;
 };
@@ -15,12 +15,12 @@ export type PlayerLevel = {
 const LADDER: { threshold: number; name: string }[] = [
   { threshold: 0, name: "hatchling" },
   { threshold: 1, name: "whelp" },
-  { threshold: 2, name: "page" },
-  { threshold: 3, name: "squire" },
-  { threshold: 5, name: "knight" },
-  { threshold: 8, name: "captain" },
-  { threshold: 13, name: "champion" },
-  { threshold: 21, name: "king" },
+  { threshold: 2, name: "shieldbearer" },
+  { threshold: 3, name: "raider" },
+  { threshold: 5, name: "viking" },
+  { threshold: 8, name: "barbarian" },
+  { threshold: 13, name: "berserker" },
+  { threshold: 21, name: "warlord" },
   { threshold: 34, name: "legend" },
 ];
 
