@@ -126,3 +126,69 @@ describe('weekRecap', () => {
     expect(laneWeek.days[1].isRest).toBe(false);
   });
 });
+describe('buildWeekRecaps — the boss gets its own square', () => {
+  const D = (s: string) => new Date(s + 'T00:00:00.000Z')
+  const lane = (checkIns: { date: Date; isRest: boolean }[], completedAt: Date | null) => [{
+    id: 'l1', name: 'Wall ball', emoji: '🥍', targetPerWeek: 5,
+    isActive: true, sortOrder: 0, checkIns,
+    bossBattles: completedAt ? [{ weekStarting: D('2026-08-10'), completedAt }] : [],
+  }]
+
+  const trainedMonToFri = [
+    { date: D('2026-08-10'), isRest: false },
+    { date: D('2026-08-11'), isRest: false },
+    { date: D('2026-08-12'), isRest: false },
+    { date: D('2026-08-13'), isRest: false },
+    { date: D('2026-08-14'), isRest: false },
+  ]
+
+  it('adds a square for a victory on a day with no check-in', () => {
+    // Beaten on the Saturday, a day he did not otherwise train.
+    const [week] = buildWeekRecaps(lane(trainedMonToFri, D('2026-08-15')))
+    const row = week.lanes[0]
+
+    expect(row.days).toHaveLength(6)
+    expect(row.days[5].date).toEqual(D('2026-08-15'))
+    expect(row.battleDay).toEqual(D('2026-08-15'))
+  })
+
+  it('does not count that square toward the weekly target', () => {
+    // Beating a boss is not a training day: the tally stays at what he trained.
+    const [week] = buildWeekRecaps(lane(trainedMonToFri, D('2026-08-15')))
+
+    expect(week.lanes[0].hits).toBe(5)
+    expect(week.lanes[0].days).toHaveLength(6)
+  })
+
+  it('does not double up when the victory lands on a training day', () => {
+    const [week] = buildWeekRecaps(lane(trainedMonToFri, D('2026-08-14')))
+    const row = week.lanes[0]
+
+    expect(row.days).toHaveLength(5)
+    expect(row.days.filter((d) => d.date.getTime() === D('2026-08-14').getTime())).toHaveLength(1)
+  })
+
+  it('keeps the square in date order', () => {
+    const [week] = buildWeekRecaps(lane(trainedMonToFri, D('2026-08-11')))
+    const dates = week.lanes[0].days.map((d) => d.date.getTime())
+
+    expect(dates).toEqual([...dates].sort((a, b) => a - b))
+  })
+
+  it('adds no square for a boss beaten in its grace week', () => {
+    // A square dated after the row it sits in would misstate when the week
+    // ended; the fought label still marks the week.
+    const [week] = buildWeekRecaps(lane(trainedMonToFri, D('2026-08-18')))
+    const row = week.lanes[0]
+
+    expect(row.days).toHaveLength(5)
+    expect(row.battleFought).toBe(true)
+  })
+
+  it('adds no square when the boss was never beaten', () => {
+    const [week] = buildWeekRecaps(lane(trainedMonToFri, null))
+
+    expect(week.lanes[0].days).toHaveLength(5)
+    expect(week.lanes[0].battleDay).toBeNull()
+  })
+})
