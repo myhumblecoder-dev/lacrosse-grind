@@ -98,6 +98,20 @@ model StreakFreeze {
   @@index([laneId])
 }
 
+// CoachCall — one row per generation the coach actually performed.
+// Spend is counted, not inferred: a re-roll generates without creating a
+// BossBattle, so counting battles undercounts what was billed. Both the
+// per-user and the global daily caps read from here.
+model CoachCall {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // challenge | reroll | victory
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
 // Prize — the single thing a player is training for. Doubles as the
 // per-user season-state row (seasonStart). The legacy row keeps its literal
 // "prize" id; new rows get cuids and every row binds to a user.

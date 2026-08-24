@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/tenancy";
-import { generate } from "@/lib/llm";
+import { askCoach } from "@/lib/coach";
 import { buildChallengePrompt } from "@/lib/bossChallenge";
-import { coachCapExceeded } from "@/lib/llmCap";
 import { getTrainingDay } from "@/lib/trainingDay";
 import { playerLevel } from "@/lib/playerLevel";
 import { revalidatePath } from "next/cache";
@@ -32,19 +31,15 @@ export async function generateBossChallenge(laneId: string, weekStarting: Date):
 
   const rank = playerLevel(defeats);
 
-  const todayStart = getTrainingDay(new Date());
-  const todayCount = await prisma.bossBattle.count({
-    where: {
-      lane: { userId },
-      createdAt: { gte: todayStart }
-    }
-  });
-
-  if (coachCapExceeded(todayCount, process.env.COACH_DAILY_LIMIT)) {
-    return { ok: false, error: 'coach-limit' };
+  const answer = await askCoach(
+    userId,
+    "challenge",
+    buildChallengePrompt(lane.name, lane.emoji, rank.name)
+  );
+  if (!answer.ok) {
+    return { ok: false, error: answer.error };
   }
-
-  const challenge = await generate(buildChallengePrompt(lane.name, lane.emoji, rank.name));
+  const challenge = answer.text;
 
   await prisma.bossBattle.upsert({
     where: { laneId_weekStarting: { laneId, weekStarting } },
