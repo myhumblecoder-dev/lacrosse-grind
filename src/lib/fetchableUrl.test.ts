@@ -86,3 +86,45 @@ describe("assertFetchableUrl", () => {
     expect(resolver).not.toHaveBeenCalled();
   });
 });
+
+describe("assertFetchableUrl — addresses disguised as IPv6 literals", () => {
+  const publicHost = async () => ["93.184.216.34"];
+
+  it("refuses the metadata endpoint however it is spelled", async () => {
+    for (const url of [
+      "https://[::ffff:169.254.169.254]/latest/meta-data/",
+      "https://[::169.254.169.254]/",
+      "https://[2002:a9fe:a9fe::]/",
+      "https://[64:ff9b::a9fe:a9fe]/",
+      "https://2852039166/", // decimal shorthand, normalised by URL
+      "https://0251.0376.0251.0376/", // octal shorthand
+    ]) {
+      const result = await assertFetchableUrl(url, publicHost);
+      expect(result, url).toEqual({ ok: false, error: "url-not-allowed" });
+    }
+  });
+
+  it("refuses loopback and private space in bracketed form", async () => {
+    for (const url of [
+      "https://[::1]/", "https://[::ffff:127.0.0.1]/",
+      "https://[::ffff:10.0.0.1]/", "https://[2002:c0a8:1::]/",
+    ]) {
+      const result = await assertFetchableUrl(url, publicHost);
+      expect(result, url).toEqual({ ok: false, error: "url-not-allowed" });
+    }
+  });
+
+  it("does not mistake hostnames of hex letters and digits for addresses", async () => {
+    // b2b.ec and f5.ca are names. Treating them as malformed addresses
+    // refused real shop links with no explanation.
+    for (const host of ["b2b.ec", "a1.cc", "f5.ca", "cdn3.ac", "1and1.com"]) {
+      const result = await assertFetchableUrl(`https://${host}/x.png`, publicHost);
+      expect(result.ok, host).toBe(true);
+    }
+  });
+
+  it("still allows a public IPv6 host", async () => {
+    const result = await assertFetchableUrl("https://[2606:4700:4700::1111]/x.png", publicHost);
+    expect(result.ok).toBe(true);
+  });
+})

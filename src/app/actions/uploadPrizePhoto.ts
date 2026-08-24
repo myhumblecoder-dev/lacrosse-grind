@@ -30,6 +30,43 @@ function safeBlobName(raw: string): string {
 }
 
 /**
+ * Read a response body, giving up as soon as it exceeds `max`.
+ *
+ * Size is checked while reading rather than after, because `.blob()` buffers
+ * the whole body first: a link to a multi-gigabyte endpoint would drive the
+ * server's memory up before anyone got to measure it. `content-length` is
+ * consulted as a shortcut but never trusted — it is optional, and a hostile
+ * host will simply lie.
+ */
+async function readCapped(response: Response, max: number): Promise<Blob | null> {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > max) return null;
+
+  const stream = response.body;
+  if (!stream) {
+    const blob = await response.blob();
+    return blob.size > max ? null : blob;
+  }
+
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  return new Blob(chunks as BlobPart[]);
+}
+
+/**
  * Download a pasted image link so it can be re-uploaded to our own store.
  *
  * We deliberately do NOT keep the remote URL: `next/image` only renders hosts
@@ -82,10 +119,8 @@ async function fetchRemoteImage(
     return { ok: false, error: "not-an-image" };
   }
 
-  // Size is measured from the downloaded bytes, not content-length: that
-  // header is optional and a remote host can lie about it.
-  const body = await response.blob();
-  if (body.size > MAX_FILE_SIZE) {
+  const body = await readCapped(response, MAX_FILE_SIZE);
+  if (body === null) {
     return { ok: false, error: "too-large" };
   }
 

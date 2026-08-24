@@ -54,9 +54,14 @@ export async function assertFetchableUrl(
     return { ok: false, error: "url-not-allowed" };
   }
 
-  // A name that resolves to nothing tells us nothing, and EVERY address has to
-  // pass: one public and one private answer is a rebinding attempt, not a
+  // A name that resolves to nothing tells us nothing, and EVERY answer has to
+  // pass: one public and one private address is a rebinding attempt, not a
   // coincidence.
+  //
+  // This narrows rebinding rather than closing it. `fetch` resolves the name
+  // again for itself, so an authoritative server answering differently the
+  // second time still wins. Closing that needs the connection pinned to an
+  // address we checked, which means a custom dispatcher.
   if (addresses.length === 0) {
     return { ok: false, error: "url-not-allowed" };
   }
@@ -70,15 +75,18 @@ export async function assertFetchableUrl(
 /**
  * The hostname as a bare IP address, or null if it is a name.
  *
- * URL keeps IPv6 hosts in brackets, so those come off first. Anything made
- * only of digits and dots counts, including the octal and hex spellings that
- * `isPublicAddress` refuses — the point is to route them to that judgement
- * rather than to DNS.
+ * Deliberately strict. `URL` has already canonicalised every IPv4 shorthand by
+ * the time we see it — `https://2852039166/`, `https://0177.0.0.1/` and
+ * `https://127.1/` all arrive as plain dotted quads — so nothing is gained by
+ * guessing at looser spellings, and guessing costs real hostnames: a test of
+ * "digits, dots and hex letters" swallows `b2b.ec` and `f5.ca`, which are
+ * names, and refuses them as malformed addresses.
+ *
+ * IPv6 hosts keep their brackets in a URL, which is what identifies them.
  */
 function asIpLiteral(hostname: string): string | null {
-  const bare = hostname.replace(/^\[/, "").replace(/\]$/, "");
-  if (bare === "") return null;
-  if (bare.includes(":")) return bare; // any IPv6 form
-  if (/^[0-9a-fx.]+$/i.test(bare) && /\d/.test(bare)) return bare;
-  return null;
+  if (hostname.startsWith("[") && hostname.endsWith("]")) {
+    return hostname.slice(1, -1);
+  }
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) ? hostname : null;
 }

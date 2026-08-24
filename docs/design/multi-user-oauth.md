@@ -89,11 +89,13 @@ refactoring needed.
 fetch), and prefix Blob pathnames with `userId`.~~ **DONE** — hardened
 rather than dropped, so pasting a shop link still works:
 `src/lib/fetchableUrl.ts` (https-only, no credentials, literal addresses
-judged directly, every resolved address checked) over
+judged directly, every DNS answer checked) over
 `src/lib/publicAddress.ts`. Redirects are followed by hand and re-checked
 per hop, since the automatic ones were the actual hole. Blob pathnames
 are prefixed with `userId` and the filename is sanitised, or `..` would
-climb straight out of that prefix.
+climb straight out of that prefix. Rebinding is narrowed, not closed:
+`fetch` re-resolves the name, so pinning the connection to a checked
+address (custom dispatcher) is still open.
 
 **LLM abuse mitigation (open sign-ups):** pure `src/lib/llmCap.ts` + a
 check in the 3 LLM actions (createBossBattle, createReflection,
