@@ -91,7 +91,7 @@ export function getDemoSeason(today: Date): DemoSeason {
         "Because a season of showing up deserves a trip, not a trophy",
         "Because he picked it himself, off the fridge, in March",
       ],
-      photoUrl: "/demo/disney-pixar-pier.jpg",
+      photoUrl: "/demo/disney-ears.jpg",
       seasonStart: weekBefore,
     },
     defeats: 2, // wall ball and jogs; kept in step by the test below
