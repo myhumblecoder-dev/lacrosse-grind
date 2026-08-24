@@ -12,6 +12,7 @@ import { validateSwap } from "@/lib/validateSwap"
 import { playerLevel } from "@/lib/playerLevel"
 import { requiredLanes } from "@/lib/laneRequirement"
 import { isLanePending } from "@/lib/lanePending"
+import { countQualifyingHits } from "@/lib/qualifyingWeek"
 import { effectiveTarget } from "@/lib/effectiveTarget"
 
 export const dynamic = "force-dynamic"
@@ -96,9 +97,7 @@ export default async function BossBattlesPage() {
     // swapped-in lane can still carry check-ins from an earlier stint that
     // would otherwise wake a boss for a week it sat retired.
     if (isLanePending(lane.startsOn, lastWeekStart)) return false
-    const lastWeekHits = lane.checkIns.filter(
-      (c) => c.date >= lastWeekStart && c.date < thisWeekStart
-    ).length
+    const lastWeekHits = countQualifyingHits(lane.checkIns, lastWeekStart)
     const lastWeekBattle = lane.bossBattles.find(
       (b) => b.weekStarting.getTime() === lastWeekStart.getTime()
     )
@@ -128,7 +127,9 @@ export default async function BossBattlesPage() {
 
       {lanes.map((lane) => {
         const pending = isLanePending(lane.startsOn, thisWeekStart)
-        const currentHits = lane.checkIns.filter((c) => c.date >= thisWeekStart).length
+        // The season's own counter, so a boss cannot wake on a week the Prize
+        // grid will score as missed.
+        const currentHits = countQualifyingHits(lane.checkIns, thisWeekStart)
         const target = effectiveTarget(
           lane.targetChanges,
           thisWeekStart,
@@ -160,11 +161,17 @@ export default async function BossBattlesPage() {
                 ⏳ New lane — its first boss wakes{" "}
                 {formatWeekLabel(lane.startsOn!)}.
               </p>
-            ) : hitTarget ? (
+            ) : hitTarget || battle ? (
+              /* `|| battle` keeps a boss already woken or already beaten on
+                 screen. A battle row only exists because the target was hit at
+                 the time, and hiding a victory behind "hit your target" if the
+                 tally later reads lower would take back something earned. */
               <div className="space-y-3">
-                <div className="text-sm font-medium text-green-600">
-                  ✅ Target hit
-                </div>
+                {hitTarget && (
+                  <div className="text-sm font-medium text-green-600">
+                    ✅ Target hit
+                  </div>
+                )}
                 {challengeCard(lane.id, thisWeekStart, battle, rerollAllowance)}
                 {battle?.completedAt && (
                   <BossBattleSwapTrigger

@@ -335,3 +335,49 @@ describe('Page', () => {
     expect(screen.queryByTestId('beat-boss')).not.toBeInTheDocument()
   })
 })
+
+describe('Page — the boss wakes on the season\'s count', () => {
+  const day = (iso: string) => new Date(iso + 'T00:00:00.000Z')
+
+  it('does not wake a boss on a week the prize grid will score as missed', async () => {
+    // Three rest days against a target of three. Raw that is 3/3 and the boss
+    // used to wake; the season counts it as 1, so the week is not earned.
+    const trainingDay = getTrainingDay(new Date())
+    const thisWeekStart = getWeekStart(trainingDay)
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([{
+      id: 'l1', name: 'Wall ball', emoji: '🥍', targetPerWeek: 3,
+      isActive: true, sortOrder: 0, startsOn: null, targetChanges: [],
+      checkIns: [
+        { date: thisWeekStart, isRest: true },
+        { date: new Date(thisWeekStart.getTime() + 86400000), isRest: true },
+        { date: new Date(thisWeekStart.getTime() + 172800000), isRest: true },
+      ],
+      bossBattles: [],
+    }] as any)
+
+    render(await Page())
+
+    expect(screen.getByTestId('battle-locked')).toBeInTheDocument()
+  })
+
+  it('keeps a beaten boss on screen even if the tally now reads lower', async () => {
+    // The safety net for tightening the count: a victory already won must not
+    // disappear behind "hit your target to unlock".
+    const trainingDay = getTrainingDay(new Date())
+    const thisWeekStart = getWeekStart(trainingDay)
+    vi.mocked(db.lane.findMany).mockResolvedValueOnce([{
+      id: 'l1', name: 'Wall ball', emoji: '🥍', targetPerWeek: 5,
+      isActive: true, sortOrder: 0, startsOn: null, targetChanges: [],
+      checkIns: [{ date: thisWeekStart, isRest: true }],
+      bossBattles: [{
+        weekStarting: thisWeekStart, challenge: 'burpees', rerollCount: 0,
+        completedAt: new Date(), coachNote: 'Well won.',
+      }],
+    }] as any)
+
+    render(await Page())
+
+    expect(screen.queryByTestId('battle-locked')).not.toBeInTheDocument()
+    expect(screen.getByTestId('boss-defeated')).toBeInTheDocument()
+  })
+})
