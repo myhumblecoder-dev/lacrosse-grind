@@ -24,6 +24,18 @@ const LADDER: { threshold: number; name: string }[] = [
   { threshold: 34, name: "legend" },
 ];
 
+/**
+ * The rung names in order, for anything that needs to *list* the ladder rather
+ * than resolve one rung of it.
+ *
+ * Exported because the about page used to keep a hand-copied second copy, and
+ * a second copy of a list is a list that drifts: it did, and the fix was
+ * commit 1d0df11 — the one that had to swap page and squire back into their
+ * historical order. Both copies then had to be edited by hand again for the
+ * Norse rename. Deriving costs nothing and ends the class of bug.
+ */
+export const LADDER_NAMES: readonly string[] = LADDER.map((rung) => rung.name);
+
 export function playerLevel(defeats: number): PlayerLevel {
   const n = Math.max(0, Math.floor(defeats || 0));
 

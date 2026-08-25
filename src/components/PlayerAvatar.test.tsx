@@ -16,7 +16,7 @@ describe('PlayerAvatar', () => {
   })
 
   it('a failed image load shows the named fallback', async () => {
-    render(<PlayerAvatar level={3} name="Knight" />)
+    render(<PlayerAvatar level={3} name="Raider" />)
     const img = screen.getByRole('img')
     
     // Simulate error
@@ -24,7 +24,7 @@ describe('PlayerAvatar', () => {
 
     const fallback = await screen.findByTestId('avatar-fallback')
     expect(fallback).toBeInTheDocument()
-    expect(fallback).toHaveTextContent('Knight 🛡️')
+    expect(fallback).toHaveTextContent('Raider 🛡️')
   })
 
   it('the wrapper carries the level for styling hooks', async () => {

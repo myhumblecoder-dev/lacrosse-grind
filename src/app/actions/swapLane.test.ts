@@ -158,9 +158,10 @@ describe('swapLane', () => {
   })
 
   it('a legend-level roster at 6 lanes must swap, not retire', async () => {
-    // 50 defeats is past the top threshold (34), so the rank is legend.
-    // We'll set defeats to a high number so floor is low (e.g. 3).
-    // If activeLaneCount is 6 and floor is 3, decision is NOT blocked and NOT mustPickReplacement.
+    // 50 defeats is past the top threshold (34), so the rank is legend —
+    // level 8, and `requiredLanes` caps at 6 from level 5 up, so the floor is
+    // SIX, not three. Being at the floor is exactly why this is a swap: a bare
+    // retire would drop below it, and naming an `inLaneId` keeps the count.
     vi.mocked(prisma.lane.count).mockResolvedValue(6)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(50)
 
