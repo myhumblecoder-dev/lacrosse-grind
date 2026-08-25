@@ -4,6 +4,27 @@ import About from '@/app/about/page'
 
 vi.mock('next/font/google', () => new Proxy({}, { get: () => () => ({ variable: 'v', className: 'c' }) }))
 
+import { LADDER_NAMES } from '@/lib/playerLevel'
+
+describe('the ladder on the page is the ladder in the code', () => {
+  it('names every evolution exactly as playerLevel does, in order', () => {
+    // The check that was missing. The old assertion only counted nine images
+    // matching /Evolution \d of 9/, which passes with any names in any order —
+    // so a hand-copied list drifted from LADDER once (page and squire ended up
+    // inverted) and nothing here noticed. The page now derives its list, and
+    // this fails if that derivation is ever replaced by a copy again.
+    render(<About />)
+
+    const rendered = screen
+      .getAllByRole('img')
+      .map((img) => img.getAttribute('alt') ?? '')
+      .filter((alt) => /^Evolution \d of 9: /.test(alt))
+      .map((alt) => alt.replace(/^Evolution \d of 9: /, ''))
+
+    expect(rendered).toEqual([...LADDER_NAMES])
+  })
+})
+
 describe('the about page carries what the marketing site said', () => {
   it('keeps the problem statement, which is the sharpest writing in it', () => {
     render(<About />)

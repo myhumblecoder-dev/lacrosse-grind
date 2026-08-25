@@ -78,7 +78,7 @@ model BossBattle {
   challenge    String?
   completedAt  DateTime?
   rerolled     Boolean   @default(false) // legacy boolean (drop after rerollCount migration)
-  rerollCount  Int       @default(0) // re-rolls used; allowance scales with rank (knight+ gets 2)
+  rerollCount  Int       @default(0) // re-rolls used; 2 from level 5 (barbarian) up, else 1
   selfReport   String? // legacy free-text (pre-challenge battles)
   coachNote    String? // AI hype note, written at victory
   createdAt    DateTime  @default(now())

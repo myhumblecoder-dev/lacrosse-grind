@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { LADDER_NAMES } from "@/lib/playerLevel"
 
 export const metadata = {
   title: "About — Lacrosse Grind",
@@ -7,18 +8,15 @@ export const metadata = {
     "A training companion for kids where showing up is the whole game. No grades, no leaderboards — lanes, boss battles, and a prize the family picks together.",
 }
 
-/** The nine evolutions, drawn from the same art the avatar uses. */
-const EVOLUTIONS = [
-  { level: 0, name: "hatchling" },
-  { level: 1, name: "whelp" },
-  { level: 2, name: "shieldbearer" },
-  { level: 3, name: "raider" },
-  { level: 4, name: "viking" },
-  { level: 5, name: "barbarian" },
-  { level: 6, name: "berserker" },
-  { level: 7, name: "warlord" },
-  { level: 8, name: "legend" },
-]
+/**
+ * The nine evolutions, derived from the ladder rather than copied from it.
+ *
+ * This was a hand-written list, which drifted from `LADDER` once already and
+ * then had to be edited in lockstep with it for every rename since. The art is
+ * addressed by level, so the names are the only thing that could disagree —
+ * and now they cannot.
+ */
+const EVOLUTIONS = LADDER_NAMES.map((name, level) => ({ level, name }))
 
 const PILLARS = [
   {
@@ -34,7 +32,7 @@ const PILLARS = [
   {
     emoji: "👹",
     title: "A monster that grows",
-    body: "Every defeated boss feeds the player's monster — from a diapered baby to a winged legend across nine evolutions. Quit for a month? It waits. It never shrinks.",
+    body: "Every defeated boss feeds the player's monster — from a hatchling to a winged legend across nine evolutions. Quit for a month? It waits. It never shrinks.",
   },
   {
     emoji: "🏆",
