@@ -55,7 +55,7 @@ describe('swapLane', () => {
 
   it('retires a lane outright when more than three are active', async () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(4)
-    // zero defeats -> baby -> floor 3; four active lanes sit above it
+    // zero defeats -> hatchling -> floor 3; four active lanes sit above it
 
     const result = await swapLane({ outLaneId: 'lane-2' })
 
@@ -68,7 +68,7 @@ describe('swapLane', () => {
 
   it('demands a replacement at exactly three lanes', async () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
-    // zero defeats -> baby -> floor 3; exactly at the floor demands a swap
+    // zero defeats -> hatchling -> floor 3; exactly at the floor demands a swap
 
     const result = await swapLane({ outLaneId: 'lane-2' })
 
@@ -157,8 +157,8 @@ describe('swapLane', () => {
     })
   })
 
-  it('a knight-level roster at 6 lanes must swap, not retire', async () => {
-    // Knight level requires a certain number of defeats.
+  it('a legend-level roster at 6 lanes must swap, not retire', async () => {
+    // 50 defeats is past the top threshold (34), so the rank is legend.
     // We'll set defeats to a high number so floor is low (e.g. 3).
     // If activeLaneCount is 6 and floor is 3, decision is NOT blocked and NOT mustPickReplacement.
     vi.mocked(prisma.lane.count).mockResolvedValue(6)
@@ -170,8 +170,8 @@ describe('swapLane', () => {
     expect(prisma.$transaction).toHaveBeenCalled()
   })
 
-  it("a baby-level roster keeps today's behavior", async () => {
-    // Baby level (0 defeats) -> floor 3, exactly today's rule: at three
+  it("a hatchling-level roster keeps today's behavior", async () => {
+    // Hatchling level (0 defeats) -> floor 3, exactly today's rule: at three
     // lanes a bare retire demands a replacement, same as before this story.
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)

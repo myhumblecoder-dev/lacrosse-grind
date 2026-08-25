@@ -18,11 +18,11 @@ describe('PlayerAvatarCard', () => {
     vi.clearAllMocks()
   })
 
-  it('the knight band renders name and level', async () => {
+  it('the barbarian band renders name and level', async () => {
     render(<PlayerAvatarCard defeats={8} />)
 
     const levelName = screen.getByTestId('avatar-level-name')
-    expect(levelName).toHaveTextContent(/Knight · Level 5/)
+    expect(levelName).toHaveTextContent(/Barbarian · Level 5/)
 
     expect(screen.queryByText(/defeats/)).not.toBeInTheDocument()
   })
@@ -36,7 +36,7 @@ describe('PlayerAvatarCard', () => {
     expect(locked()).toBe(0)
   })
 
-  it('level zero renders the baby stage', async () => {
+  it('level zero renders the hatchling stage', async () => {
     render(<PlayerAvatarCard defeats={0} />)
 
     expect(screen.getByTestId('avatar-level-name')).toHaveTextContent(/Level 0/)
@@ -47,7 +47,7 @@ describe('PlayerAvatarCard', () => {
 
   it('shows something from the very first rank', async () => {
     // The whole point of the change: a bar measuring distance-to-next-rank sat
-    // at zero for baby, toddler and tween, because those bands are one boss
+    // at zero for hatchling, whelp and shieldbearer, because those bands are one boss
     // wide. A pip is lit at every rank, including the very first.
     render(<PlayerAvatarCard defeats={0} />)
 
@@ -63,7 +63,7 @@ describe('PlayerAvatarCard', () => {
   })
 
   it('does not light a pip part-way through a band', async () => {
-    // 4 defeats is still page — the rank has not changed, so nor has the row.
+    // 4 defeats is still raider — the rank has not changed, so nor has the row.
     render(<PlayerAvatarCard defeats={4} />)
     expect(earned()).toBe(4)
   })
@@ -82,7 +82,7 @@ describe('PlayerAvatarCard', () => {
 
     expect(screen.getByTestId('avatar-pips')).toHaveAttribute(
       'aria-label',
-      expect.stringContaining('Evolution 6 of 9: knight')
+      expect.stringContaining('Evolution 6 of 9: barbarian')
     )
   })
 })

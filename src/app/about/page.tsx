@@ -9,13 +9,13 @@ export const metadata = {
 
 /** The nine evolutions, drawn from the same art the avatar uses. */
 const EVOLUTIONS = [
-  { level: 0, name: "baby" },
-  { level: 1, name: "toddler" },
-  { level: 2, name: "tween" },
-  { level: 3, name: "page" },
-  { level: 4, name: "squire" },
-  { level: 5, name: "knight" },
-  { level: 6, name: "barbarian" },
+  { level: 0, name: "hatchling" },
+  { level: 1, name: "whelp" },
+  { level: 2, name: "shieldbearer" },
+  { level: 3, name: "raider" },
+  { level: 4, name: "viking" },
+  { level: 5, name: "barbarian" },
+  { level: 6, name: "berserker" },
   { level: 7, name: "warlord" },
   { level: 8, name: "legend" },
 ]
