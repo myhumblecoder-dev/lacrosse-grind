@@ -34,8 +34,8 @@ describe('rerollBossChallenge', () => {
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 
-  it('a captain gets a second re-roll where a hatchling does not', async () => {
-    // Level 5+ gets 2 rerolls. We set defeats to 10, so the rank is captain.
+  it('a barbarian gets a second re-roll where a hatchling does not', async () => {
+    // Level 5+ gets 2 rerolls. We set defeats to 10, so the rank is barbarian.
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(10)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
       id: 'b1',
@@ -71,7 +71,7 @@ describe('rerollBossChallenge', () => {
   })
 
   it('the reroll prompt addresses the rank', async () => {
-    // 10 defeats is level 5, whose rank name is 'captain'
+    // 10 defeats is level 5, whose rank name is 'barbarian'
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(10)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue({
       id: 'b1',
@@ -83,10 +83,10 @@ describe('rerollBossChallenge', () => {
 
     await rerollBossChallenge('b1')
 
-    // buildChallengePrompt is real, so we check it was called with 'captain'
+    // buildChallengePrompt is real, so we check it was called with 'barbarian'
     // Since we can't spy on the pure function directly without mocking, 
     // we verify the result of the logic via the generate call's arguments.
-    expect(askCoach).toHaveBeenCalledWith(expect.any(String), expect.any(String), buildChallengePrompt('Running', '🏃', 'captain'))
+    expect(askCoach).toHaveBeenCalledWith(expect.any(String), expect.any(String), buildChallengePrompt('Running', '🏃', 'barbarian'))
   })
 }) 
 describe('rerollBossChallenge — the path that had no cap at all', () => {

@@ -11,12 +11,12 @@ export const metadata = {
 const EVOLUTIONS = [
   { level: 0, name: "hatchling" },
   { level: 1, name: "whelp" },
-  { level: 2, name: "page" },
-  { level: 3, name: "squire" },
-  { level: 4, name: "knight" },
-  { level: 5, name: "captain" },
-  { level: 6, name: "champion" },
-  { level: 7, name: "king" },
+  { level: 2, name: "shieldbearer" },
+  { level: 3, name: "raider" },
+  { level: 4, name: "viking" },
+  { level: 5, name: "barbarian" },
+  { level: 6, name: "berserker" },
+  { level: 7, name: "warlord" },
   { level: 8, name: "legend" },
 ]
 

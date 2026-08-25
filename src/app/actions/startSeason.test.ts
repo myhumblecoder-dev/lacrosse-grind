@@ -92,8 +92,8 @@ describe('startSeason', () => {
     expect(result.seasonStart.getUTCDate()).toBe(20)
   })
 
-  it('a captain-level player is blocked at 3 lanes with the demand named', async () => {
-    // 10 defeats is captain (threshold 8), which requires more than 3 lanes.
+  it('a barbarian-level player is blocked at 3 lanes with the demand named', async () => {
+    // 10 defeats is barbarian (threshold 8), which requires more than 3 lanes.
     // We simulate enough defeats to reach it, but not enough active lanes.
     // We'll mock count to return 3 active lanes, but 10 defeats.
     vi.mocked(prisma.lane.count).mockResolvedValue(3)

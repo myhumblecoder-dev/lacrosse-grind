@@ -6,12 +6,12 @@ describe('playerLevel', () => {
     const cases: Array<[number, string]> = [
       [0, 'hatchling'],
       [1, 'whelp'],
-      [2, 'page'],
-      [3, 'squire'],
-      [5, 'knight'],
-      [8, 'captain'],
-      [13, 'champion'],
-      [21, 'king'],
+      [2, 'shieldbearer'],
+      [3, 'raider'],
+      [5, 'viking'],
+      [8, 'barbarian'],
+      [13, 'berserker'],
+      [21, 'warlord'],
       [34, 'legend'],
     ]
 
@@ -29,11 +29,11 @@ describe('playerLevel', () => {
     expect(hatchling.nextAt).toBe(1)
     expect(hatchling.progress).toBe(0)
 
-    // 5 -> level 4 'knight', nextAt 8, progress 0
-    const knight = playerLevel(5)
-    expect(knight.level).toBe(4)
-    expect(knight.nextAt).toBe(8)
-    expect(knight.progress).toBe(0)
+    // 5 -> level 4 'viking', nextAt 8, progress 0
+    const viking = playerLevel(5)
+    expect(viking.level).toBe(4)
+    expect(viking.nextAt).toBe(8)
+    expect(viking.progress).toBe(0)
 
     // 6 -> level 4, progress 1/3 (6 is 1 step into the 5->8 band)
     const progressMid = playerLevel(6)
