@@ -55,7 +55,14 @@ jobs:
           # NO --skip-generate: Prisma 7 rejects it by printing help and
           # exiting 0 — a silent no-op that would re-plant the outage on the
           # next Prisma upgrade (brownfield-readiness-checklist §4).
-          pnpm exec prisma db push
+          #
+          # --accept-data-loss: db push refuses ANY change its heuristic
+          # flags (e.g. a unique index on a just-added all-NULL column —
+          # provably safe, epic 6). Without the flag, db-push CD bricks on
+          # such diffs. Destructive schema changes are gated upstream by two
+          # reviewed merges (story PR + release PR); if this repo ever moves
+          # to prisma migrate deploy, drop the flag with the switch.
+          pnpm exec prisma db push --accept-data-loss
       - name: Build
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: Deploy to Vercel production
