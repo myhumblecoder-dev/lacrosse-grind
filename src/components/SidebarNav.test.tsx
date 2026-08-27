@@ -14,6 +14,17 @@ describe('SidebarNav', () => {
     vi.mocked(usePathname).mockReturnValue('/')
   })
 
+  it('playerSwitcher node appears in nav when provided', async () => {
+    const switcher = <span data-testid="nav-switcher">NS</span>
+    render(<SidebarNav playerSwitcher={switcher} />)
+    expect(screen.getByTestId('nav-switcher')).toBeInTheDocument()
+  })
+
+  it('nav renders without error when playerSwitcher is undefined', async () => {
+    render(<SidebarNav />)
+    expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument()
+  })
+
   it('renders five nav links', async () => {
     render(<SidebarNav />)
     expect(screen.getByRole('link', { name: 'Today' })).toBeInTheDocument()
