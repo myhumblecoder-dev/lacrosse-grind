@@ -1,16 +1,18 @@
 import { describe, it, expect, vi } from 'vitest'
-import { requireUserId } from './tenancy'
+import { requireUserId, requirePlayerId } from './tenancy'
 
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { prisma } from '@/lib/db'
 
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
 }))
 
-vi.mock('@/lib/db', () => ({ prisma: { user: { count: vi.fn() } } }))
+vi.mock('@/lib/db', () => ({ prisma: { user: { count: vi.fn() }, player: { findFirst: vi.fn() } } }))
 
+vi.mock('next/headers', () => ({ cookies: vi.fn() }))
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(() => { throw new Error('REDIRECT') }),
 }))
@@ -60,5 +62,28 @@ describe('requireUserId — a cookie is not proof the account exists', () => {
 
     await expect(requireUserId()).rejects.toThrow()
     expect(redirect).toHaveBeenCalledWith('/signin')
+  })
+
+  it('returns cookie player id when cookie names an owned player', async () => {
+    vi.mocked(cookies).mockResolvedValue(
+      { get: () => ({ value: 'player-1' }) } as unknown as Awaited<ReturnType<typeof cookies>>)
+    vi.mocked(prisma.player.findFirst).mockResolvedValueOnce({ id: 'player-1' } as never)
+    await expect(requirePlayerId('user-1')).resolves.toBe('player-1')
+  })
+
+  it('falls back to oldest player when cookie is absent', async () => {
+    vi.mocked(cookies).mockResolvedValue(
+      { get: () => undefined } as unknown as Awaited<ReturnType<typeof cookies>>)
+    vi.mocked(prisma.player.findFirst).mockResolvedValueOnce({ id: 'player-2' } as never)
+    await expect(requirePlayerId('user-1')).resolves.toBe('player-2')
+  })
+
+  it('redirects when no player rows exist for userId', async () => {
+    vi.mocked(cookies).mockResolvedValue(
+      { get: () => undefined } as unknown as Awaited<ReturnType<typeof cookies>>)
+    vi.mocked(prisma.player.findFirst).mockResolvedValueOnce(null as never)
+    vi.mocked(prisma.player.findFirst).mockResolvedValueOnce(null as never)
+    await requirePlayerId('user-1').catch(() => undefined)
+    expect(redirect).toHaveBeenCalledWith('/')
   })
 })
