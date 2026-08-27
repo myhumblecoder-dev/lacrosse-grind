@@ -58,7 +58,7 @@ vi.mock('next/font/google', () => new Proxy({}, {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
     // Default mock for lanes to prevent crashes in the loop
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
     vi.mocked(prisma.lane.count).mockResolvedValue(0)
@@ -69,7 +69,7 @@ describe('Page', () => {
 
   it('every query is scoped to the signed-in user', async () => {
     const userId = 'u1'
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId, playerId: 'p1' })
     
     // Setup mocks to verify the 'where' clause
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
@@ -79,13 +79,13 @@ describe('Page', () => {
     await Page()
 
     expect(prisma.prize.findUnique).toHaveBeenCalledWith({
-      where: { userId }
+      where: { playerId: 'p1' }
     })
     expect(prisma.lane.count).toHaveBeenCalledWith({
-      where: { isActive: true, userId: userId }
+      where: { isActive: true, playerId: 'p1' }
     })
     expect(prisma.lane.findMany).toHaveBeenCalledWith({
-      where: { isActive: true, userId: userId },
+      where: { isActive: true, playerId: 'p1' },
       orderBy: { sortOrder: "asc" },
       include: expect.anything()
     })
@@ -195,7 +195,7 @@ describe('Page — the freeze offer', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date(TODAY + 'T18:00:00.000Z'))
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
@@ -306,7 +306,7 @@ describe('Page — the bar counts what the season counts', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date(TODAY + 'T18:00:00.000Z'))
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)

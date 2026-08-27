@@ -34,7 +34,7 @@ describe('Page', () => {
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
   })
 
   it('the lane list is scoped to the signed-in user', async () => {
@@ -52,7 +52,7 @@ describe('Page', () => {
 
     expect(getViewer).toHaveBeenCalled()
     expect(prisma.lane.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1' },
+      where: { playerId: 'p1' },
       orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }],
       include: { targetChanges: true },
     })
