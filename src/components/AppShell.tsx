@@ -11,9 +11,11 @@ interface AppShellProps {
   account?: React.ReactNode
   /** Whether there is an account to manage — the nav hides what there is not. */
   signedIn?: boolean
+  /** Active-player switcher (epic 6) — sits left of the account control. */
+  playerSwitcher?: React.ReactNode
 }
 
-export default function AppShell({ children, account, signedIn = false }: AppShellProps) {
+export default function AppShell({ children, account, signedIn = false, playerSwitcher }: AppShellProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   
@@ -53,7 +55,7 @@ export default function AppShell({ children, account, signedIn = false }: AppShe
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <SidebarNav signedIn={signedIn} />
+        <SidebarNav signedIn={signedIn} playerSwitcher={playerSwitcher} />
       </aside>
 
       {/* min-w-0 keeps a wide child (the history heatmap, a long coach note)
@@ -85,7 +87,7 @@ export default function AppShell({ children, account, signedIn = false }: AppShe
             </button>
             <span className="text-lg font-bold text-zinc-100">Lacrosse Grind</span>
           </div>
-          {account}
+          <div className="flex items-center gap-2">{playerSwitcher}{account}</div>
         </header>
 
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
