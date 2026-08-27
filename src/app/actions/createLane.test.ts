@@ -138,8 +138,8 @@ describe('createLane — a ceiling on how many lanes one account owns', () => {
   it('lane create call includes playerId from requirePlayerId', async () => {
     await createLane({ name: 'Wall Ball', emoji: '🥍', targetPerWeek: 5 })
     expect(prisma.lane.create).toHaveBeenCalledOnce()
-    const arg = vi.mocked(prisma.lane.create).mock.calls[0][0]
-    expect(arg.data.playerId).toBe('p1')
+    expect(prisma.lane.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ playerId: 'p1' }) }))
   })
 
   it('lane create is not called when validation fails', async () => {

@@ -125,8 +125,8 @@ describe('createCheckIn — the date is not the caller\'s to choose freely', () 
   it('lane lookup uses playerId from requirePlayerId', async () => {
     await createCheckIn({ laneId: 'l1', date, isRest: false })
     expect(prisma.lane.findFirst).toHaveBeenCalledOnce()
-    const arg = vi.mocked(prisma.lane.findFirst).mock.calls[0][0]
-    expect(arg.where.playerId).toBe('p1')
+    expect(prisma.lane.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ playerId: 'p1' }) }))
   })
 
   it('returns not-found when lane belongs to different player', async () => {

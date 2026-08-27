@@ -124,7 +124,9 @@ model Prize {
   id          String    @id @default(cuid())
   userId      String?   @unique
   user        User?     @relation(fields: [userId], references: [id])
-  playerId    String?
+  // One prize per player (the domain rule) — and findUnique-by-playerId in
+  // the pages requires the unique index. Nullable stays additive-safe.
+  playerId    String?   @unique
   player      Player?   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   title       String
   description String?

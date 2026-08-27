@@ -39,8 +39,8 @@ async function loadPrize(viewer: Viewer, today: Date) {
     return { prize: demo.prize, lanes: demo.lanes }
   }
 
-  const { userId } = viewer
-  const prize = await prisma.prize.findUnique({ where: { userId } })
+  const { playerId } = viewer
+  const prize = await prisma.prize.findUnique({ where: { playerId } })
   const seasonStart = prize?.seasonStart ?? null
 
   // Before START there is no window to filter on — the season hasn't begun,
@@ -58,7 +58,7 @@ async function loadPrize(viewer: Viewer, today: Date) {
     : {}
 
   const lanes = await prisma.lane.findMany({
-    where: { userId },
+    where: { playerId },
     select: {
       targetPerWeek: true,
       // Each week is scored against the target that was in force THAT week, so
