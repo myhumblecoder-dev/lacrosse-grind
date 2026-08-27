@@ -113,7 +113,30 @@ model StreakFreeze {
 
   @@index([laneId])
 }
+
+// Player — a kid tracked under one account (epic 6 multi-player). Private to
+// the owning User; lanes and prize/season state hang off the player.
+model Player {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lanes  Lane[]
+  prizes Prize[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
 ```
+
+Multi-player (epic 6): `Lane` and `Prize` each gain a nullable `playerId
+String?` column (additive — `db push` applies without data loss); the
+`ensureDefaultPlayer` action binds orphan rows to the account's default
+player on first login.
 
 No `User` model — single-user MVP.
 
@@ -139,6 +162,10 @@ No `User` model — single-user MVP.
 | `src/app/actions/createReflection.ts` (+ `.test.ts`) | action | Submit weekly reflection → calls `generate()` for coach summary |
 | `src/app/actions/awardFreeze.ts` (+ `.test.ts`) | action | Award a streak freeze token to a lane |
 | `src/app/actions/spendFreeze.ts` (+ `.test.ts`) | action | Spend a freeze on the missed day that breaks a streak (named `spendFreeze`, not `useFreeze`: a `useX` export trips React's rules-of-hooks lint) |
+| `src/app/actions/ensureDefaultPlayer.ts` (+ `.test.ts`) | action | Epic 6: create/bind the account's default player, adopt orphan lanes/prize |
+| `src/app/actions/createPlayer.ts` (+ `.test.ts`) | action | Epic 6: add a player (cap 6 per account) |
+| `src/app/actions/switchPlayer.ts` (+ `.test.ts`) | action | Epic 6: set the active-player cookie |
+| `src/components/PlayerSwitcher.tsx` (+ `.test.tsx`) | component | Epic 6: active-player switcher UI |
 | `src/lib/repairableGap.ts` (+ `.test.ts`) | lib | `findRepairableGap(checkIns, today, frozenDates?)` — the missed day worth a token, or null |
 | `src/app/page.tsx` | route | Daily dashboard — today's checklist across all active lanes |
 | `src/app/layout.tsx` | route | Root layout — nav shell (modify scaffold version) |
