@@ -39,6 +39,7 @@ describe('createLane', () => {
         ...input,
         sortOrder: 0,
         userId: 'u1',
+        playerId: 'p1',
         startsOn: expect.any(Date)
       }
     })
