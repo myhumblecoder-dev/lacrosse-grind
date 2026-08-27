@@ -1,5 +1,8 @@
 generator client {
   provider = "prisma-client-js"
+  // CD builds on the GitHub Ubuntu runner (debian engine) but the app runs
+  // on Vercel's Amazon Linux Lambdas — ship the rhel engine alongside.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
