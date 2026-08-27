@@ -38,9 +38,20 @@ jobs:
         # a column prod's DB never got. Push the schema BEFORE deploying so
         # code and database always move together. Uses the real DATABASE_URL
         # from the pulled Vercel production env, not the placeholder above.
+        env:
+          PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           pnpm install --frozen-lockfile
           set -a && source .vercel/.env.production.local && set +a
+          # Vercel env vars flagged Sensitive (Neon integration default) pull
+          # as the literal string "[SENSITIVE]" — a repo secret DATABASE_URL
+          # is the source of truth then. Fail loudly rather than hand prisma
+          # a placeholder.
+          if [ -n "$PROD_DATABASE_URL" ]; then export DATABASE_URL="$PROD_DATABASE_URL"; fi
+          if [ "$DATABASE_URL" = "[SENSITIVE]" ]; then
+            echo "DATABASE_URL is Sensitive in Vercel and no DATABASE_URL repo secret is set" >&2
+            exit 1
+          fi
           # NO --skip-generate: Prisma 7 rejects it by printing help and
           # exiting 0 — a silent no-op that would re-plant the outage on the
           # next Prisma upgrade (brownfield-readiness-checklist §4).
