@@ -1,0 +1,51 @@
+name: CD
+
+# GitFlow: `main` is the release branch — every push to main deploys to
+# Vercel production. Secrets: VERCEL_TOKEN + VERCEL_ORG_ID (org),
+# VERCEL_PROJECT_ID (repo). Deploys via the Vercel CLI; the GitHub App's
+# auto-deploy for main is disabled in vercel.json so code never goes live
+# before the schema-sync step below has run.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # prisma generate (postinstall) reads DATABASE_URL at config-load;
+      # a placeholder lets the build run. The DEPLOYED app uses the
+      # DATABASE_URL set on the Vercel project.
+      DATABASE_URL: postgresql://user:password@localhost:5432/db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Sync database schema
+        # partner-coach-bot's 2026-08-26 outage: main deployed code selecting
+        # a column prod's DB never got. Push the schema BEFORE deploying so
+        # code and database always move together. Uses the real DATABASE_URL
+        # from the pulled Vercel production env, not the placeholder above.
+        run: |
+          pnpm install --frozen-lockfile
+          set -a && source .vercel/.env.production.local && set +a
+          # NO --skip-generate: Prisma 7 rejects it by printing help and
+          # exiting 0 — a silent no-op that would re-plant the outage on the
+          # next Prisma upgrade (brownfield-readiness-checklist §4).
+          pnpm exec prisma db push
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Vercel production
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
