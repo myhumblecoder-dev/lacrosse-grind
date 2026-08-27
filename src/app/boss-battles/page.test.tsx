@@ -32,7 +32,7 @@ vi.mock('next/font/google', () => new Proxy({}, {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
     // Persistent default: any call not overridden by a test's Once
     // (i.e. the second, inactive-lanes call) resolves empty. A Once here
     // would be consumed FIFO by the FIRST (active) call instead.
@@ -42,7 +42,7 @@ describe('Page', () => {
 
   it('both lane queries are scoped to the signed-in user', async () => {
     const userId = 'u1'
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId, playerId: 'p1' })
 
     const lane = {
       id: 'l1',

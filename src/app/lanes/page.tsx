@@ -28,18 +28,18 @@ async function loadLanes(viewer: Viewer, today: Date) {
     return { lanes, seasonRunning: true, defeats: demo.defeats }
   }
 
-  const { userId } = viewer
+  const { playerId } = viewer
   const [lanes, prize, defeats] = await Promise.all([
     prisma.lane.findMany({
-      where: { userId },
+      where: { playerId },
       orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }],
       include: { targetChanges: true },
     }),
     // A running season refuses lane deletes, so the page says so up front
     // rather than letting the confirm button do nothing.
-    prisma.prize.findUnique({ where: { userId } }),
+    prisma.prize.findUnique({ where: { playerId } }),
     prisma.bossBattle.count({
-      where: { completedAt: { not: null }, lane: { userId } },
+      where: { completedAt: { not: null }, lane: { playerId } },
     }),
   ])
 

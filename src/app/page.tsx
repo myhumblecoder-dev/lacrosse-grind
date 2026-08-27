@@ -54,19 +54,19 @@ async function loadDashboard(viewer: Viewer, today: Date) {
     }
   }
 
-  const { userId } = viewer
+  const { playerId } = viewer
   const streakWindowStart = new Date(
     today.getTime() - STREAK_WINDOW_DAYS * 24 * 60 * 60 * 1000
   )
 
   const [prize, activeLaneCount, defeats, lanes] = await Promise.all([
-    prisma.prize.findUnique({ where: { userId } }),
-    prisma.lane.count({ where: { isActive: true, userId } }),
+    prisma.prize.findUnique({ where: { playerId } }),
+    prisma.lane.count({ where: { isActive: true, playerId } }),
     prisma.bossBattle.count({
-      where: { completedAt: { not: null }, lane: { userId } },
+      where: { completedAt: { not: null }, lane: { playerId } },
     }),
     prisma.lane.findMany({
-      where: { isActive: true, userId },
+      where: { isActive: true, playerId },
       orderBy: { sortOrder: "asc" },
       include: {
         checkIns: {
