@@ -82,4 +82,23 @@ describe('AppShell', () => {
     expect(wrapper.className).toContain('flex-col')
     expect(wrapper.className).toContain('md:flex-row')
   })
+
+  it('playerSwitcher node is rendered in the header when provided', () => {
+    render(
+      <AppShell signedIn account={<span>acct</span>}
+        playerSwitcher={<span data-testid="switcher-slot">SW</span>}>
+        <div>content</div>
+      </AppShell>
+    )
+    expect(screen.getByTestId('switcher-slot')).toBeInTheDocument()
+  })
+
+  it('header renders without error when playerSwitcher is undefined', () => {
+    render(
+      <AppShell signedIn account={<span>acct</span>}>
+        <div>content</div>
+      </AppShell>
+    )
+    expect(screen.getByTestId('mobile-topbar')).toBeInTheDocument()
+  })
 })

@@ -14,6 +14,10 @@ model Lane {
   // claim script has bound the pre-auth rows to their owner.
   userId        String?
   user          User?     @relation(fields: [userId], references: [id])
+  // Multi-player (epic 6): nullable = additive rollout; ensureDefaultPlayer
+  // binds orphan rows to the account's default player on first login.
+  playerId      String?
+  player        Player?   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   name          String
   emoji         String    @default("🥍")
   targetPerWeek Int       @default(5) // days/week target frequency
@@ -32,6 +36,7 @@ model Lane {
 
   @@index([isActive])
   @@index([userId, isActive])
+  @@index([playerId, isActive])
 }
 
 // LaneTarget — a weekly target that takes effect from a given Monday.
@@ -119,6 +124,10 @@ model Prize {
   id          String    @id @default(cuid())
   userId      String?   @unique
   user        User?     @relation(fields: [userId], references: [id])
+  // One prize per player (the domain rule) — and findUnique-by-playerId in
+  // the pages requires the unique index. Nullable stays additive-safe.
+  playerId    String?   @unique
+  player      Player?   @relation(fields: [playerId], references: [id], onDelete: Cascade)
   title       String
   description String?
   reasons     String[]
@@ -126,6 +135,24 @@ model Prize {
   seasonStart DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// Player — a kid tracked under one account (epic 6 multi-player). Private to
+// the owning User; lanes and prize/season state hang off the player.
+model Player {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lanes  Lane[]
+  prizes Prize[]
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
 // ---- Auth.js (next-auth v5 Prisma adapter) --------------------------------
@@ -143,6 +170,7 @@ model User {
   sessions Session[]
   lanes    Lane[]
   prize    Prize?
+  players  Player[]
 }
 
 model Account {

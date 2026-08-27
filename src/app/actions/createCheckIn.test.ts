@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { createCheckIn } from './createCheckIn'
 
 vi.mock('@/lib/db', () => ({ prisma: { checkIn: { upsert: vi.fn() }, lane: { findFirst: vi.fn() } } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
 const date = new Date(Date.UTC(2026, 0, 5))
 
@@ -22,6 +22,7 @@ describe('createCheckIn', () => {
     vi.clearAllMocks()
     pinClock()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
   })
 
   afterEach(() => vi.useRealTimers())
@@ -119,5 +120,18 @@ describe('createCheckIn — the date is not the caller\'s to choose freely', () 
     })
 
     expect(result).toEqual({ ok: true, id: 'c1' })
+  })
+
+  it('lane lookup uses playerId from requirePlayerId', async () => {
+    await createCheckIn({ laneId: 'l1', date, isRest: false })
+    expect(prisma.lane.findFirst).toHaveBeenCalledOnce()
+    expect(prisma.lane.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ playerId: 'p1' }) }))
+  })
+
+  it('returns not-found when lane belongs to different player', async () => {
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue(null as never)
+    const out = await createCheckIn({ laneId: 'l-foreign', date: '2026-08-27' })
+    expect(out.ok).toBe(false)
   })
 })

@@ -28,13 +28,13 @@ describe('Page', () => {
     const { prisma } = await import('@/lib/db')
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
   })
 
   it('the history queries are scoped to the signed-in user', async () => {
     const { prisma } = await import('@/lib/db')
     const userId = 'u1'
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId, playerId: 'p1' })
     
     vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'prize', userId } as any)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])

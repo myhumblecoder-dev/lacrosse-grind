@@ -34,7 +34,7 @@ const PRIZE = {
 describe('Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1' })
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
     vi.mocked(prisma.lane.findMany).mockResolvedValue([] as never)
   })
 
@@ -47,11 +47,11 @@ describe('Page', () => {
     render(await PrizePage())
 
     expect(vi.mocked(prisma.prize.findUnique)).toHaveBeenCalledWith({
-      where: { userId: 'u1' },
+      where: { playerId: 'p1' },
     })
     expect(vi.mocked(prisma.lane.findMany)).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId: 'u1' }),
+        where: expect.objectContaining({ playerId: 'p1' }),
       }),
     )
   })

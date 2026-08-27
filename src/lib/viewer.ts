@@ -1,7 +1,10 @@
 import { auth } from "@/auth";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 
-export type Viewer = { kind: "user"; userId: string } | { kind: "demo" };
+export type Viewer =
+  | { kind: "user"; userId: string; playerId: string }
+  | { kind: "demo" };
 
 /**
  * Who is looking at this page — a signed-in user, or nobody?
@@ -26,6 +29,32 @@ export async function getViewer(): Promise<Viewer> {
   if (!userId) return { kind: "demo" };
 
   const stillExists = await prisma.user.count({ where: { id: userId } });
+  if (stillExists !== 1) return { kind: "demo" };
 
-  return stillExists === 1 ? { kind: "user", userId } : { kind: "demo" };
+  // Active player: cookie-validated first, oldest player as the fallback.
+  // '' means "no players yet" — the layout's ensureDefaultPlayer closes that
+  // window on the next request.
+  let playerId = await getActivePlayerId(userId);
+  if (playerId === null) {
+    const oldest = await prisma.player.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+    });
+    playerId = oldest?.id ?? "";
+  }
+  return { kind: "user", userId, playerId };
+}
+
+/**
+ * The player named by the `x-active-player-id` cookie, IF this user owns it.
+ * Ownership is validated so a stale or foreign cookie can never select
+ * another account's player. Null when the cookie is absent or invalid.
+ */
+export async function getActivePlayerId(userId: string): Promise<string | null> {
+  const cookieValue = (await cookies()).get("x-active-player-id")?.value;
+  if (!cookieValue) return null;
+  const row = await prisma.player.findFirst({
+    where: { id: cookieValue, userId },
+  });
+  return row?.id ?? null;
 }

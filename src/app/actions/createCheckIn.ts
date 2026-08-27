@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { checkInSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { isWithinCheckInWindow } from "@/lib/checkInWindow";
 import { getTrainingDay } from "@/lib/trainingDay";
 
@@ -9,6 +9,7 @@ export async function createCheckIn(
   input: unknown
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
 
   const parsed = checkInSchema.safeParse(input);
   if (!parsed.success) {
@@ -24,7 +25,7 @@ export async function createCheckIn(
   }
 
   const lane = await prisma.lane.findFirst({
-    where: { id: laneId, userId },
+    where: { id: laneId, playerId },
   });
 
   if (!lane) {

@@ -1,18 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { createLane } from './createLane'
 import { MAX_LANES_PER_USER } from '@/lib/season'
 
 vi.mock('@/lib/db', () => ({ prisma: { lane: { create: vi.fn(), count: vi.fn() } } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
 describe('createLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.lane.count).mockResolvedValue(0)
   })
 
@@ -38,6 +39,7 @@ describe('createLane', () => {
         ...input,
         sortOrder: 0,
         userId: 'u1',
+        playerId: 'p1',
         startsOn: expect.any(Date)
       }
     })
@@ -131,5 +133,18 @@ describe('createLane — a ceiling on how many lanes one account owns', () => {
   it('leaves room for a real season of swapping', async () => {
     // A swap a week for thirteen weeks, never reusing a lane, is about twenty.
     expect(MAX_LANES_PER_USER).toBeGreaterThan(20)
+  })
+
+  it('lane create call includes playerId from requirePlayerId', async () => {
+    await createLane({ name: 'Wall Ball', emoji: '🥍', targetPerWeek: 5 })
+    expect(prisma.lane.create).toHaveBeenCalledOnce()
+    expect(prisma.lane.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ playerId: 'p1' }) }))
+  })
+
+  it('lane create is not called when validation fails', async () => {
+    vi.mocked(prisma.lane.create).mockClear()
+    await createLane({ name: '' })
+    expect(prisma.lane.create).not.toHaveBeenCalled()
   })
 })
