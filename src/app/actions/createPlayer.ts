@@ -19,8 +19,16 @@ export async function createPlayer(
   if (count >= 6) {
     return { ok: false, error: 'cap' };
   }
-  const row = await prisma.player.create({
-    data: { userId, name: parsed.data, isDefault: false },
-  });
-  return { ok: true, id: row.id };
+  try {
+    const row = await prisma.player.create({
+      data: { userId, name: parsed.data, isDefault: false },
+    });
+    return { ok: true, id: row.id };
+  } catch (err) {
+    // @@unique([userId, name]) — a sibling already has this name.
+    if ((err as { code?: string }).code === 'P2002') {
+      return { ok: false, error: 'duplicate' };
+    }
+    throw err;
+  }
 }
