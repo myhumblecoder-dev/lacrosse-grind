@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppShell from "@/components/AppShell";
 import AccountControl from "@/components/AccountControl";
-import PlayerSwitcher from "@/components/PlayerSwitcher";
+import HeaderPlayerChip from "@/components/HeaderPlayerChip";
 import { auth } from "@/auth";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { ensureDefaultPlayer } from "@/app/actions/ensureDefaultPlayer";
-import { switchPlayer } from "@/app/actions/switchPlayer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,9 +38,9 @@ export default async function RootLayout({
   // without every page having to tell it.
   const session = await auth();
 
-  // Epic 6: signed-in accounts always have a player before any page renders —
+  // Signed-in accounts always have a player before any page renders —
   // ensureDefaultPlayer migrates pre-multiplayer rows on first sight — and the
-  // header gets the switcher, fed by the active-player cookie.
+  // header shows the active kid's chip (epic 7: tap → /choose-player).
   let playerSwitcher: React.ReactNode | undefined;
   if (session?.user) {
     await ensureDefaultPlayer();
@@ -50,15 +49,22 @@ export default async function RootLayout({
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true },
     });
-    const activePlayerId =
-      (await cookies()).get("x-active-player-id")?.value ?? players[0]?.id ?? "";
-    playerSwitcher = (
-      <PlayerSwitcher
-        players={players}
-        activePlayerId={activePlayerId}
-        switchPlayer={switchPlayer}
-      />
-    );
+    const cookieId = (await cookies()).get("x-active-player-id")?.value;
+    const active =
+      players.find((p) => p.id === cookieId) ?? players[0];
+    if (active) {
+      // Level = defeated bosses across the active player's lanes.
+      const defeats = await prisma.bossBattle.count({
+        where: { completedAt: { not: null }, lane: { playerId: active.id } },
+      });
+      playerSwitcher = (
+        <HeaderPlayerChip
+          playerId={active.id}
+          playerName={active.name}
+          defeats={defeats}
+        />
+      );
+    }
   }
 
   return (
