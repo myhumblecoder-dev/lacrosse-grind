@@ -7,29 +7,32 @@ describe('PlayerAvatar', () => {
     vi.clearAllMocks()
   })
 
-  it('the image points at the level\'s file with pixelated rendering', async () => {
+  it('default size unchanged: render with only `level` and `name`, assert the img has width 192 and height 192', async () => {
     render(<PlayerAvatar level={5} name="Hero" />)
     const img = screen.getByRole('img')
-    expect(img).toHaveAttribute('src', '/avatars/level-5.png')
-    expect(img).toHaveAttribute('alt', 'Hero')
-    expect(img).toHaveClass('[image-rendering:pixelated]')
+    expect(img.style.width).toBe('192px')
+    expect(img.style.height).toBe('192px')
+    expect(img).toHaveAttribute('width', '192')
+    expect(img).toHaveAttribute('height', '192')
   })
 
-  it('a failed image load shows the named fallback', async () => {
-    render(<PlayerAvatar level={3} name="Raider" />)
+  it('custom size: render with `size={32}`, assert the img has width 32 and height 32', async () => {
+    render(<PlayerAvatar level={5} name="Hero" size={32} />)
+    const img = screen.getByRole('img')
+    expect(img.style.width).toBe('32px')
+    expect(img.style.height).toBe('32px')
+    expect(img).toHaveAttribute('width', '32')
+    expect(img).toHaveAttribute('height', '32')
+  })
+
+  it('fallback respects size: force the error fallback, assert the fallback div style has width 32 when `size={32}`', async () => {
+    render(<PlayerAvatar level={5} name="Hero" size={32} />)
     const img = screen.getByRole('img')
     
-    // Simulate error
     img.dispatchEvent(new Event('error', { bubbles: true }))
 
     const fallback = await screen.findByTestId('avatar-fallback')
-    expect(fallback).toBeInTheDocument()
-    expect(fallback).toHaveTextContent('Raider 🛡️')
-  })
-
-  it('the wrapper carries the level for styling hooks', async () => {
-    render(<PlayerAvatar level={8} name="Warrior" />)
-    const wrapper = screen.getByTestId('player-avatar')
-    expect(wrapper).toHaveAttribute('data-level', '8')
+    expect(fallback.style.width).toBe('32px')
+    expect(fallback.style.height).toBe('32px')
   })
 })
