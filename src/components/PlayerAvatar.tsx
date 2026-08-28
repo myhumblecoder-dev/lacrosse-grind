@@ -5,9 +5,10 @@ import React, { useState } from 'react'
 interface PlayerAvatarProps {
   level: number
   name: string
+  size?: number
 }
 
-export default function PlayerAvatar({ level, name }: PlayerAvatarProps) {
+export default function PlayerAvatar({ level, name, size = 192 }: PlayerAvatarProps) {
   const [hasError, setHasError] = useState(false)
 
   const getEmoji = (lvl: number) => {
@@ -22,12 +23,13 @@ export default function PlayerAvatar({ level, name }: PlayerAvatarProps) {
     <div
       data-testid="player-avatar"
       data-level={level}
-      className="avatar-scanlines relative animate-avatar-bob motion-reduce:animate-none"
+      className="avatar-scanlines relative animate-avatar-blob motion-reduce:animate-none"
     >
       {hasError ? (
         <div
           data-testid="avatar-fallback"
-          className="flex h-[192px] w-[192px] items-center justify-center rounded-full bg-zinc-800 text-zinc-400 text-center p-2"
+          className="flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 text-center p-2"
+          style={{ width: size, height: size }}
         >
           <span className="text-sm font-bold leading-tight">
             {name} {emoji}
@@ -37,9 +39,10 @@ export default function PlayerAvatar({ level, name }: PlayerAvatarProps) {
         <img
           src={`/avatars/level-${level}.png`}
           alt={name}
-          width={192}
-          height={192}
-          className="[image-rendering:pixelated] h-[192px] w-[192px] rounded-full object-cover"
+          width={size}
+          height={size}
+          className="[image-rendering:pixelated] rounded-full object-cover"
+          style={{ width: size, height: size }}
           onError={() => setHasError(true)}
         />
       )}
