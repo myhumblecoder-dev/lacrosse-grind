@@ -34,4 +34,9 @@ describe('createPlayer', () => {
     const arg = vi.mocked(prisma.player.create).mock.calls[0][0]
     expect(arg.data).toEqual({ userId: 'u1', name: 'Eddie', isDefault: false })
   })
+  it('returns duplicate when the name collides for this user (P2002)', async () => {
+    vi.mocked(prisma.player.create).mockRejectedValue(
+      Object.assign(new Error('unique'), { code: 'P2002' }))
+    await expect(createPlayer('Eddie')).resolves.toEqual({ ok: false, error: 'duplicate' })
+  })
 })
