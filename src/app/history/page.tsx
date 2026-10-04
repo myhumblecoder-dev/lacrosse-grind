@@ -17,10 +17,10 @@ async function loadHistory(viewer: Viewer, today: Date) {
     )
   }
 
-  const { userId } = viewer
-  const prize = await prisma.prize.findUnique({ where: { userId } })
+  const { playerId } = viewer
+  const prize = await prisma.prize.findUnique({ where: { playerId } })
   return prisma.lane.findMany({
-    where: { userId },
+    where: { playerId },
     orderBy: [
       { isActive: "desc" },
       { sortOrder: "asc" },

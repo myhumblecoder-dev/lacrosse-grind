@@ -31,23 +31,35 @@ describe('Page', () => {
     vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
   })
 
-  it('the history queries are scoped to the signed-in user', async () => {
+  it('the history queries are scoped to the active player, not the account', async () => {
     const { prisma } = await import('@/lib/db')
-    const userId = 'u1'
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId, playerId: 'p1' })
-    
-    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'prize', userId } as any)
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'prize', playerId: 'p1' } as any)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
 
     await Page()
 
     expect(getViewer).toHaveBeenCalled()
     expect(prisma.prize.findUnique).toHaveBeenCalledWith({
-      where: { userId }
+      where: { playerId: 'p1' }
     })
     expect(prisma.lane.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ userId })
+      where: expect.objectContaining({ playerId: 'p1' })
     }))
+  })
+
+  it('does not query by userId — a second kid on the account must not appear', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    await Page()
+
+    const laneArg = vi.mocked(prisma.lane.findMany).mock.calls[0][0]
+    expect(laneArg?.where).not.toHaveProperty('userId')
+    const prizeArg = vi.mocked(prisma.prize.findUnique).mock.calls[0][0]
+    expect(prizeArg.where).not.toHaveProperty('userId')
   })
 
   it('a retired lane with history renders muted with the tag', async () => {
