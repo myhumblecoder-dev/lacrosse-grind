@@ -162,4 +162,28 @@ describe('AmendPage', () => {
 
     expect(container.textContent ?? '').not.toMatch(/missed|failed|deficit|cheat/i)
   })
+
+  it('explains a season that has not started instead of a grid of dead cells', async () => {
+    // resolveSeasonStart dates a Tuesday press to next Monday, so for the rest
+    // of that week every day is behind the season floor.
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({
+      seasonStart: new Date(Date.UTC(2026, 9, 5)),
+    } as never)
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-season-pending')).toBeInTheDocument()
+    expect(screen.queryByTestId('amend-grid')).not.toBeInTheDocument()
+  })
+
+  it('shows the grid once the season is running', async () => {
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({
+      seasonStart: new Date(Date.UTC(2026, 8, 28)),
+    } as never)
+
+    render(await Page())
+
+    expect(screen.queryByTestId('amend-season-pending')).not.toBeInTheDocument()
+    expect(screen.getByTestId('amend-grid')).toBeInTheDocument()
+  })
 })

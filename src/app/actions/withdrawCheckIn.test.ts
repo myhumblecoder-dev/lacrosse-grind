@@ -112,7 +112,7 @@ describe('withdrawCheckIn', () => {
     await withdrawCheckIn(validInput())
     const arg = vi.mocked(prisma.checkInRemoval.create).mock.calls[0][0]
     expect(arg.data.wasRest).toBe(true)
-    expect(arg.data.date).toBe(TUESDAY)
+    expect(arg.data.date).toEqual(TUESDAY)
     expect(arg.data.laneId).toBe('lane-1')
   })
 
@@ -169,5 +169,13 @@ describe('withdrawCheckIn', () => {
     expect(revalidatePath).toHaveBeenCalledWith('/')
     expect(revalidatePath).toHaveBeenCalledWith('/amend')
     expect(revalidatePath).toHaveBeenCalledWith('/history')
+  })
+
+  it('pins a mid-afternoon date to UTC midnight, so the grid and the delete agree', async () => {
+    await withdrawCheckIn(validInput({ date: new Date('2026-09-29T18:45:00.000Z') }))
+
+    expect(prisma.checkIn.delete).toHaveBeenCalledWith({
+      where: { laneId_date: { laneId: 'lane-1', date: TUESDAY } },
+    })
   })
 })

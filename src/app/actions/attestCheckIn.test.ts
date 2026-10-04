@@ -11,7 +11,7 @@ vi.mock('@/lib/db', () => ({
     user: { findUnique: vi.fn() },
     lane: { findFirst: vi.fn() },
     prize: { findUnique: vi.fn() },
-    checkIn: { upsert: vi.fn() },
+    checkIn: { upsert: vi.fn(), findUnique: vi.fn() },
     streakFreeze: { updateMany: vi.fn() },
   },
 }))
@@ -43,6 +43,7 @@ describe('attestCheckIn', () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: HASH } as never)
     vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'lane-1', startsOn: null } as never)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue({ seasonStart: null } as never)
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.checkIn.upsert).mockResolvedValue({ id: 'ci-1' } as never)
     vi.mocked(prisma.streakFreeze.updateMany).mockResolvedValue({ count: 0 } as never)
   })
@@ -156,5 +157,48 @@ describe('attestCheckIn', () => {
   it('revalidates nothing when the write was refused', async () => {
     await attestCheckIn(validInput({ passphrase: 'wrong one entirely' }))
     expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it("refuses to restamp the player's own check-in as a witness statement", async () => {
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue({
+      attestedAt: null,
+      isRest: false,
+    } as never)
+
+    const result = await attestCheckIn(validInput({ isRest: false }))
+
+    expect(result).toEqual({ ok: false, error: 'already-marked' })
+    expect(prisma.checkIn.upsert).not.toHaveBeenCalled()
+  })
+
+  it('allows a deliberate flip of a day the player marked', async () => {
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue({
+      attestedAt: null,
+      isRest: false,
+    } as never)
+
+    const result = await attestCheckIn(validInput({ isRest: true }))
+
+    expect(result).toEqual({ ok: true, id: 'ci-1' })
+    const arg = vi.mocked(prisma.checkIn.upsert).mock.calls[0][0]
+    expect(arg.update.isRest).toBe(true)
+  })
+
+  it('allows a witness to edit a statement they already own', async () => {
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue({
+      attestedAt: new Date('2026-09-30T10:00:00.000Z'),
+      isRest: false,
+    } as never)
+
+    const result = await attestCheckIn(validInput({ isRest: false }))
+
+    expect(result).toEqual({ ok: true, id: 'ci-1' })
+  })
+
+  it('pins a mid-afternoon date to UTC midnight', async () => {
+    await attestCheckIn(validInput({ date: new Date('2026-09-29T18:45:00.000Z') }))
+
+    const arg = vi.mocked(prisma.checkIn.upsert).mock.calls[0][0]
+    expect(arg.where).toEqual({ laneId_date: { laneId: 'lane-1', date: TUESDAY } })
   })
 })

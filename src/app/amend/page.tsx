@@ -54,7 +54,14 @@ export default async function AmendPage() {
 
   // A lane that has not reached its first week has nothing to amend.
   const liveLanes = lanes.filter((l) => !isLanePending(l.startsOn, weekStart))
-  const rows = buildAmendWeek(liveLanes, today, prize?.seasonStart ?? null)
+  const seasonStart = prize?.seasonStart ?? null
+  const rows = buildAmendWeek(liveLanes, today, seasonStart)
+
+  // `resolveSeasonStart` returns the Monday ON OR AFTER the press, so starting a
+  // season on a Tuesday dates it to next Monday. For the rest of that week the
+  // seasonStart floor rejects every day, which left a grid of disabled cells
+  // under copy inviting a parent to tap one. Say what is happening instead.
+  const seasonPending = seasonStart !== null && seasonStart.getTime() > today.getTime()
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-6">
@@ -66,7 +73,12 @@ export default async function AmendPage() {
         not his.
       </p>
 
-      {rows.length === 0 ? (
+      {seasonPending ? (
+        <p data-testid="amend-season-pending" className="text-zinc-500">
+          The season starts on Monday, so this week is not being counted yet —
+          there is nothing here to put straight. Come back once it is running.
+        </p>
+      ) : rows.length === 0 ? (
         <p data-testid="amend-no-lanes" className="text-zinc-500">
           No lanes are running this week yet, so there is nothing to amend. A
           lane added mid-week starts counting on Monday.

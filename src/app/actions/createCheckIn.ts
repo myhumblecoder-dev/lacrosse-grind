@@ -32,6 +32,24 @@ export async function createCheckIn(
     return { ok: false, error: "not-found" };
   }
 
+  // A day a witness put on the record is not the player's to rewrite.
+  //
+  // `deleteCheckIn` already refuses one, but this is the other half of the same
+  // card and left the statement editable: the update branch rewrites `isRest`
+  // and leaves `attestedAt` standing, so a rest day a parent attested could be
+  // flipped to a session that still carries the "Witnessed" badge — the record
+  // would keep vouching that a witness said something they did not. Reachable
+  // from a stale dashboard tab, which still renders the buttons because its
+  // snapshot predates the attestation (#547).
+  const existing = await prisma.checkIn.findUnique({
+    where: { laneId_date: { laneId, date } },
+    select: { attestedAt: true },
+  });
+
+  if (existing?.attestedAt != null) {
+    return { ok: false, error: "attested" };
+  }
+
   const checkIn = await prisma.checkIn.upsert({
     where: { laneId_date: { laneId, date } },
     update: { isRest, note },

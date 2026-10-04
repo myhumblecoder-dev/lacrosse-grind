@@ -49,7 +49,11 @@ const ERROR_COPY: Record<string, string> = {
   "bad-passphrase": "That passphrase didn't match.",
   "no-passphrase": "No passphrase is set yet — set one on the Account page.",
   "outside-window": "Amendments only reach the current week.",
-  validation: "Type your amend passphrase first.",
+  // Both schemas cap the note at 200 characters and require a passphrase, and
+  // the UI now enforces both — so this copy names the two inputs rather than
+  // guessing at one of them and being wrong.
+  validation: "Check the passphrase and the note, then try again.",
+  "already-marked": "That day already says this. Nothing to change.",
   "write-failed": "That didn't save — try again in a moment.",
 }
 
@@ -203,6 +207,7 @@ export default function AmendWeekGrid({
 
                 <input
                   data-testid="amend-note"
+                  maxLength={200}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Anything worth remembering (optional)"

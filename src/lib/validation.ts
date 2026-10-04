@@ -6,9 +6,23 @@ export const laneSchema = z.object({
   targetPerWeek: z.number().int().min(1).max(7).default(5),
 })
 
+/**
+ * Pin a day to UTC midnight, the form every `CheckIn.date` is stored in.
+ *
+ * `@@unique([laneId, date])` is on the exact timestamp, not the calendar day, so
+ * an un-normalized date is not a harmless variation: `2026-09-29T12:00:00Z`
+ * passes every window check (they all compare day keys) and then misses the
+ * existing midnight row, inserting a SECOND check-in for the same day.
+ * `buildWeekRecaps` counts one hit per row, so that day would score twice and
+ * could qualify a week on its own. Normalizing in the schema makes the unique
+ * index mean what the rest of the code assumes it means.
+ */
+const utcMidnight = (d: Date) =>
+  new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+
 export const checkInSchema = z.object({
   laneId: z.string(), // cuid
-  date: z.date(),
+  date: z.date().transform(utcMidnight),
   isRest: z.boolean().default(false),
   note: z.string().max(200).optional().nullable(),
 })
@@ -57,7 +71,7 @@ export const witnessPassphraseSchema = z
  */
 export const attestCheckInSchema = z.object({
   laneId: z.string().min(1),
-  date: z.date(),
+  date: z.date().transform(utcMidnight),
   isRest: z.boolean().default(false),
   note: z.string().trim().max(200).optional().nullable(),
   passphrase: z.string().min(1),
@@ -65,7 +79,7 @@ export const attestCheckInSchema = z.object({
 
 export const withdrawCheckInSchema = z.object({
   laneId: z.string().min(1),
-  date: z.date(),
+  date: z.date().transform(utcMidnight),
   note: z.string().trim().max(200).optional().nullable(),
   passphrase: z.string().min(1),
 })

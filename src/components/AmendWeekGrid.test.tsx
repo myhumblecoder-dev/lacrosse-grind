@@ -178,18 +178,6 @@ describe('AmendWeekGrid', () => {
     expect(screen.getByTestId('amend-showed-up')).toBeEnabled()
   })
 
-  it('names what a validation refusal actually means', async () => {
-    const user = userEvent.setup()
-    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'validation' }) }
-    render(<AmendWeekGrid {...p} />)
-
-    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
-    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
-    await user.click(screen.getByTestId('amend-showed-up'))
-
-    expect(screen.getByTestId('amend-error')).toHaveTextContent(/passphrase first/)
-  })
-
   it('tells a parent a write failed rather than blaming the passphrase', async () => {
     const user = userEvent.setup()
     const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'write-failed' }) }
@@ -412,5 +400,38 @@ describe('AmendWeekGrid', () => {
 
     const text = screen.getByTestId('amend-grid').textContent ?? ''
     expect(text).not.toMatch(/missed|failed|deficit|cheat/i)
+  })
+
+  it('caps the note at what the schema accepts', async () => {
+    const user = userEvent.setup()
+    render(<AmendWeekGrid {...props()} />)
+
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+
+    expect(screen.getByTestId('amend-note')).toHaveAttribute('maxlength', '200')
+  })
+
+  it('a validation refusal names both inputs rather than guessing at one', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'validation' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toHaveTextContent(/passphrase and the note/)
+  })
+
+  it('says so when the day already carries what was asked for', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'already-marked' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toHaveTextContent(/already says this/)
   })
 })

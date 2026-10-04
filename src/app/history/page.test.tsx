@@ -13,6 +13,9 @@ vi.mock('@/lib/db', () => ({
     prize: {
       findUnique: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
@@ -28,6 +31,7 @@ describe('Page', () => {
     const { prisma } = await import('@/lib/db')
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: 'salt:hash' } as never)
     vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
   })
 
@@ -406,5 +410,51 @@ describe('Page', () => {
 
     expect(screen.getAllByTestId('amend-link')).toHaveLength(1)
     expect(screen.queryByText(/Nothing on the record yet this week/)).not.toBeInTheDocument()
+  })
+
+  it('the amend door offers setup, not amending, when no passphrase exists', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: null } as never)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    render(await Page())
+
+    const link = screen.getByTestId('amend-link')
+    expect(link).toHaveAttribute('href', '/account')
+    expect(link).toHaveTextContent('Set up amend')
+  })
+
+  it('the amend door goes straight to amending once a passphrase exists', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: 'salt:hash' } as never)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    render(await Page())
+
+    const link = screen.getByTestId('amend-link')
+    expect(link).toHaveAttribute('href', '/amend')
+    expect(link).toHaveTextContent('Amend')
+  })
+
+  it('never renders the stored hash', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: 'salt:secrethash' } as never)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    const { container } = render(await Page())
+
+    expect(container.innerHTML).not.toContain('secrethash')
+  })
+
+  it('does not look up a passphrase for a demo visitor', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'demo' })
+
+    render(await Page())
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled()
   })
 })

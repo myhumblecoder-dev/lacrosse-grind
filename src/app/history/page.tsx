@@ -42,6 +42,20 @@ export default async function HistoryPage() {
   const today = getTrainingDay(new Date())
   const lanes = await loadHistory(viewer, today)
 
+  // Whether a passphrase exists, never the hash. /amend redirects to /account
+  // without one, so a button reading "Amend" would have dropped a first-time
+  // parent on a page about their account with nothing explaining why.
+  const hasPassphrase =
+    viewer.kind === "user" &&
+    Boolean(
+      (
+        await prisma.user.findUnique({
+          where: { id: viewer.userId },
+          select: { witnessHash: true },
+        })
+      )?.witnessHash
+    )
+
   const recaps = buildWeekRecaps(lanes)
   const thisWeekStart = getWeekStart(today)
 
@@ -53,11 +67,11 @@ export default async function HistoryPage() {
   const amendLink =
     viewer.kind === "user" ? (
       <Link
-        href="/amend"
+        href={hasPassphrase ? "/amend" : "/account"}
         data-testid="amend-link"
         className="rounded-lg border border-zinc-700 px-3 py-1 text-sm font-normal text-zinc-300 transition-colors hover:bg-zinc-800"
       >
-        Amend
+        {hasPassphrase ? "Amend" : "Set up amend"}
       </Link>
     ) : null
 
