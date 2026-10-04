@@ -180,6 +180,7 @@ export default async function DashboardPage() {
               streak={streak}
               checkedIn={!!todayCheckIn}
               isRest={todayCheckIn?.isRest ?? false}
+              isAttested={todayCheckIn?.attestedAt != null}
               today={today.toISOString()}
               createCheckIn={isDemo ? gate : async (params) => {
                 "use server"

@@ -128,10 +128,24 @@ describe('withdrawCheckIn', () => {
     expect(arg.data.note).toBeNull()
   })
 
-  it('returns not-found when the transaction throws', async () => {
-    vi.mocked(prisma.$transaction).mockRejectedValue(new Error('gone'))
+  it('returns not-found when the row vanished under it (P2025)', async () => {
+    const gone = Object.assign(new Error('gone'), { code: 'P2025' })
+    vi.mocked(prisma.$transaction).mockRejectedValue(gone)
     const result = await withdrawCheckIn(validInput())
     expect(result).toEqual({ ok: false, error: 'not-found' })
+  })
+
+  it('an outage is write-failed, not a missing row', async () => {
+    const down = Object.assign(new Error('connection refused'), { code: 'P1001' })
+    vi.mocked(prisma.$transaction).mockRejectedValue(down)
+    const result = await withdrawCheckIn(validInput())
+    expect(result).toEqual({ ok: false, error: 'write-failed' })
+  })
+
+  it('an error with no Prisma code is write-failed', async () => {
+    vi.mocked(prisma.$transaction).mockRejectedValue(new Error('kaboom'))
+    const result = await withdrawCheckIn(validInput())
+    expect(result).toEqual({ ok: false, error: 'write-failed' })
   })
 
   it('does not revalidate when the transaction throws', async () => {

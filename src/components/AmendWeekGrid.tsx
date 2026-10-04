@@ -49,6 +49,15 @@ const ERROR_COPY: Record<string, string> = {
   "bad-passphrase": "That passphrase didn't match.",
   "no-passphrase": "No passphrase is set yet — set one on the Account page.",
   "outside-window": "Amendments only reach the current week.",
+  validation: "Type your amend passphrase first.",
+  "write-failed": "That didn't save — try again in a moment.",
+}
+
+const STATE_LABEL: Record<AmendDayState, string> = {
+  session: "trained",
+  rest: "rest day",
+  withdrawn: "taken off the record",
+  empty: "nothing on the record",
 }
 
 /**
@@ -61,7 +70,15 @@ const ERROR_COPY: Record<string, string> = {
  * write. No witness cookie: a write is then verified at the moment it happens
  * rather than against a state that was true several minutes ago. It is not
  * cleared on a failure, because a parent fixing a typo should not have to retype
- * the context too.
+ * the context too, and nothing is offered until it has been typed — an empty one
+ * comes back from the schema as a bare validation error, which tells a parent
+ * nothing about what is missing.
+ *
+ * A day already on the record gets different choices from an empty one. Offering
+ * "He showed up" on an already-green Tuesday meant a parent opening it to look
+ * could restamp the player's own check-in as a witness statement, which is
+ * exactly the laundering the schema refuses in the other direction. A marked day
+ * can be taken off, or have its nature changed by a button that says so.
  */
 export default function AmendWeekGrid({
   lanes,
@@ -146,6 +163,9 @@ export default function AmendWeekGrid({
                       ? `${dayId(day.date)} — on the record by a witness`
                       : dayId(day.date)
                   }
+                  aria-label={`${weekdayLabel(day.date)} ${dayId(day.date)} — ${
+                    STATE_LABEL[day.state]
+                  }${day.attested ? ", on the record by a witness" : ""}`}
                   className={`flex h-11 w-11 flex-col items-center justify-center rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                     CELL_STYLE[day.state]
                   } ${day.attested ? "ring-2 ring-amber-300 ring-offset-2 ring-offset-zinc-950" : ""}`}
@@ -169,6 +189,7 @@ export default function AmendWeekGrid({
             const id = `${lane.id}-${dayId(day.date)}`
             if (openCell !== id) return null
             const marked = day.state === "session" || day.state === "rest"
+            const blocked = isPending || passphrase.length === 0
 
             return (
               <div
@@ -189,65 +210,96 @@ export default function AmendWeekGrid({
                 />
 
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    data-testid="amend-showed-up"
-                    disabled={isPending}
-                    onClick={() =>
-                      run(() =>
-                        attestCheckIn({
-                          laneId: lane.id,
-                          date: day.date,
-                          isRest: false,
-                          note: note || null,
-                          passphrase,
-                        })
-                      )
-                    }
-                    className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40"
-                  >
-                    He showed up
-                  </button>
+                  {!marked && (
+                    <>
+                      <button
+                        type="button"
+                        data-testid="amend-showed-up"
+                        disabled={blocked}
+                        onClick={() =>
+                          run(() =>
+                            attestCheckIn({
+                              laneId: lane.id,
+                              date: day.date,
+                              isRest: false,
+                              note: note || null,
+                              passphrase,
+                            })
+                          )
+                        }
+                        className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-500 disabled:opacity-40"
+                      >
+                        He showed up
+                      </button>
 
-                  <button
-                    type="button"
-                    data-testid="amend-rest-day"
-                    disabled={isPending}
-                    onClick={() =>
-                      run(() =>
-                        attestCheckIn({
-                          laneId: lane.id,
-                          date: day.date,
-                          isRest: true,
-                          note: note || null,
-                          passphrase,
-                        })
-                      )
-                    }
-                    className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
-                  >
-                    Rest day
-                  </button>
+                      <button
+                        type="button"
+                        data-testid="amend-rest-day"
+                        disabled={blocked}
+                        onClick={() =>
+                          run(() =>
+                            attestCheckIn({
+                              laneId: lane.id,
+                              date: day.date,
+                              isRest: true,
+                              note: note || null,
+                              passphrase,
+                            })
+                          )
+                        }
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+                      >
+                        Rest day
+                      </button>
+                    </>
+                  )}
 
                   {marked && (
-                    <button
-                      type="button"
-                      data-testid="amend-withdraw"
-                      disabled={isPending}
-                      onClick={() =>
-                        run(() =>
-                          withdrawCheckIn({
-                            laneId: lane.id,
-                            date: day.date,
-                            note: note || null,
-                            passphrase,
-                          })
-                        )
-                      }
-                      className="rounded-lg border border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
-                    >
-                      This one didn&apos;t happen
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        data-testid="amend-withdraw"
+                        disabled={blocked}
+                        onClick={() =>
+                          run(() =>
+                            withdrawCheckIn({
+                              laneId: lane.id,
+                              date: day.date,
+                              note: note || null,
+                              passphrase,
+                            })
+                          )
+                        }
+                        className="rounded-lg border border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
+                      >
+                        This one didn&apos;t happen
+                      </button>
+
+                      {/* Changing a day's nature says what it is doing. The same
+                          write behind an ambiguous label let a parent opening a
+                          green cell restamp the player's own check-in. */}
+                      <button
+                        type="button"
+                        data-testid="amend-flip"
+                        disabled={blocked}
+                        onClick={() =>
+                          run(() =>
+                            attestCheckIn({
+                              laneId: lane.id,
+                              date: day.date,
+                              isRest: day.state !== "rest",
+                              note: note || null,
+                              passphrase,
+                            })
+                          )
+                        }
+                        className="rounded-lg border border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
+                      >
+                        {day.state === "rest"
+                          ? "Actually a session"
+                          : "Actually a rest day"}
+                      </button>
+                    </>
                   )}
 
                   <button

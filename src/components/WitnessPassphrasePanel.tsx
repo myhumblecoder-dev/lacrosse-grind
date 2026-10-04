@@ -72,6 +72,7 @@ export default function WitnessPassphrasePanel({
           setTyped(e.target.value)
           setSaved(false)
         }}
+        maxLength={200}
         autoComplete="new-password"
         className="w-full max-w-xs rounded-lg border border-zinc-700 bg-zinc-900 p-2"
       />
@@ -88,6 +89,7 @@ export default function WitnessPassphrasePanel({
           setConfirmed(e.target.value)
           setSaved(false)
         }}
+        maxLength={200}
         autoComplete="new-password"
         className="w-full max-w-xs rounded-lg border border-zinc-700 bg-zinc-900 p-2"
       />

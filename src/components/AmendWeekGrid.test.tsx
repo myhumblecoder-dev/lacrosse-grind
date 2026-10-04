@@ -110,6 +110,120 @@ describe('AmendWeekGrid', () => {
     expect(screen.getByTestId('amend-withdraw')).toBeInTheDocument()
   })
 
+  it('a marked day is not offered "He showed up" — that would restamp the player\'s own tap', async () => {
+    const user = userEvent.setup()
+    const row = lane({ days: [day(TUESDAY, { state: 'session' })] })
+    render(<AmendWeekGrid {...props([row])} />)
+
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+
+    expect(screen.queryByTestId('amend-showed-up')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('amend-rest-day')).not.toBeInTheDocument()
+  })
+
+  it('a session day offers an explicit flip to a rest day', async () => {
+    const user = userEvent.setup()
+    const row = lane({ days: [day(TUESDAY, { state: 'session' })] })
+    const p = props([row])
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    expect(screen.getByTestId('amend-flip')).toHaveTextContent('Actually a rest day')
+
+    await user.click(screen.getByTestId('amend-flip'))
+    expect(p.attestCheckIn).toHaveBeenCalledWith(expect.objectContaining({ isRest: true }))
+  })
+
+  it('a rest day offers an explicit flip to a session', async () => {
+    const user = userEvent.setup()
+    const row = lane({ days: [day(TUESDAY, { state: 'rest' })] })
+    const p = props([row])
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    expect(screen.getByTestId('amend-flip')).toHaveTextContent('Actually a session')
+
+    await user.click(screen.getByTestId('amend-flip'))
+    expect(p.attestCheckIn).toHaveBeenCalledWith(expect.objectContaining({ isRest: false }))
+  })
+
+  it('an empty day is not offered a flip', async () => {
+    const user = userEvent.setup()
+    render(<AmendWeekGrid {...props()} />)
+
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+
+    expect(screen.queryByTestId('amend-flip')).not.toBeInTheDocument()
+  })
+
+  it('nothing is clickable until a passphrase is typed', async () => {
+    const user = userEvent.setup()
+    render(<AmendWeekGrid {...props()} />)
+
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+
+    expect(screen.getByTestId('amend-showed-up')).toBeDisabled()
+    expect(screen.getByTestId('amend-rest-day')).toBeDisabled()
+  })
+
+  it('arms the choices once a passphrase is typed', async () => {
+    const user = userEvent.setup()
+    render(<AmendWeekGrid {...props()} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+
+    expect(screen.getByTestId('amend-showed-up')).toBeEnabled()
+  })
+
+  it('names what a validation refusal actually means', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'validation' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toHaveTextContent(/passphrase first/)
+  })
+
+  it('tells a parent a write failed rather than blaming the passphrase', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'write-failed' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toHaveTextContent(/didn't save/)
+  })
+
+  it('a cell announces its state, not just its weekday', () => {
+    const row = lane({
+      days: [
+        day(MONDAY, { state: 'session' }),
+        day(TUESDAY, { state: 'withdrawn' }),
+        day(WEDNESDAY, { state: 'empty' }),
+      ],
+    })
+    render(<AmendWeekGrid {...props([row])} />)
+
+    expect(screen.getByTestId('amend-cell-lane-1-2026-09-28')).toHaveAccessibleName(/trained/)
+    expect(screen.getByTestId('amend-cell-lane-1-2026-09-29')).toHaveAccessibleName(/taken off the record/)
+    expect(screen.getByTestId('amend-cell-lane-1-2026-09-30')).toHaveAccessibleName(/nothing on the record/)
+  })
+
+  it('an attested cell says so in its accessible name', () => {
+    const row = lane({ days: [day(TUESDAY, { state: 'session', attested: true })] })
+    render(<AmendWeekGrid {...props([row])} />)
+
+    expect(screen.getByTestId('amend-cell-lane-1-2026-09-29')).toHaveAccessibleName(/witness/)
+  })
+
   it('the withdraw control is offered for a rest day', async () => {
     const user = userEvent.setup()
     const row = lane({ days: [day(TUESDAY, { state: 'rest' })] })
@@ -189,6 +303,7 @@ describe('AmendWeekGrid', () => {
     const user = userEvent.setup()
     render(<AmendWeekGrid {...props()} />)
 
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
     await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
     await user.click(screen.getByTestId('amend-showed-up'))
 
@@ -200,6 +315,7 @@ describe('AmendWeekGrid', () => {
     const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'bad-passphrase' }) }
     render(<AmendWeekGrid {...p} />)
 
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
     await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
     await user.click(screen.getByTestId('amend-showed-up'))
 
@@ -211,6 +327,7 @@ describe('AmendWeekGrid', () => {
     const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'no-passphrase' }) }
     render(<AmendWeekGrid {...p} />)
 
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
     await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
     await user.click(screen.getByTestId('amend-showed-up'))
 
@@ -222,6 +339,7 @@ describe('AmendWeekGrid', () => {
     const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'outside-window' }) }
     render(<AmendWeekGrid {...p} />)
 
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
     await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
     await user.click(screen.getByTestId('amend-showed-up'))
 
@@ -233,6 +351,7 @@ describe('AmendWeekGrid', () => {
     const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'kaboom' }) }
     render(<AmendWeekGrid {...p} />)
 
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
     await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
     await user.click(screen.getByTestId('amend-showed-up'))
 
@@ -244,6 +363,7 @@ describe('AmendWeekGrid', () => {
     const p = { ...props(), attestCheckIn: vi.fn().mockRejectedValue(new Error('nope')) }
     render(<AmendWeekGrid {...p} />)
 
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
     await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
     await user.click(screen.getByTestId('amend-showed-up'))
 

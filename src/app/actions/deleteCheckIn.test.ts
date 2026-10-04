@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { deleteCheckIn } from './deleteCheckIn'
 
-vi.mock('@/lib/db', () => ({ prisma: { checkIn: { deleteMany: vi.fn() } } }))
+vi.mock('@/lib/db', () => ({ prisma: { checkIn: { deleteMany: vi.fn(), findFirst: vi.fn() } } }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
@@ -24,6 +24,7 @@ describe('deleteCheckIn', () => {
     pinClock()
     vi.mocked(requireUserId).mockResolvedValue('u1')
     vi.mocked(requirePlayerId).mockResolvedValue('p1')
+    vi.mocked(prisma.checkIn.findFirst).mockResolvedValue({ attestedAt: null } as never)
   })
 
   afterEach(() => vi.useRealTimers())
@@ -82,7 +83,28 @@ describe('deleteCheckIn', () => {
     expect(prisma.checkIn.deleteMany).not.toHaveBeenCalled()
   })
 
-  it('prisma not-found error returns not-found error', async () => {
+  it('a day with no check-in returns not-found', async () => {
+    vi.mocked(prisma.checkIn.findFirst).mockResolvedValue(null)
+
+    const result = await deleteCheckIn('lane-1', date)
+
+    expect(result).toEqual({ ok: false, error: 'not-found' })
+    expect(prisma.checkIn.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('refuses a day a witness put on the record', async () => {
+    vi.mocked(prisma.checkIn.findFirst).mockResolvedValue({
+      attestedAt: new Date('2026-01-05T12:00:00.000Z'),
+    } as never)
+
+    const result = await deleteCheckIn('lane-1', date)
+
+    expect(result).toEqual({ ok: false, error: 'attested' })
+    expect(prisma.checkIn.deleteMany).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it('a vanished row returns not-found error', async () => {
     vi.mocked(prisma.checkIn.deleteMany).mockResolvedValue({ count: 0 })
 
     const result = await deleteCheckIn('lane-1', date)

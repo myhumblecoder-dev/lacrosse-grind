@@ -20,8 +20,12 @@ import { getTrainingDay } from "@/lib/trainingDay";
  * turns out to be worth it.
  *
  * Does NOT touch a boss battle. `completedAt` and the `defeats` count that
- * drives avatar level never unwind: he beat that boss in the backyard, and a
- * day coming off the record does not undo it.
+ * drives avatar level never unwind: he beat that boss in the backyard, and a day
+ * coming off the record does not undo it. One caveat on the DISPLAY of that,
+ * which this action cannot fix from here: `buildWeekRecaps` derives its weeks
+ * from the check-ins, so withdrawing a lane's only check-in of a week drops the
+ * whole lane-week row and the victory's purple square with it. The battle row is
+ * untouched; History just has nowhere to draw it. Tracked separately.
  */
 export async function withdrawCheckIn(
   input: unknown
@@ -89,10 +93,20 @@ export async function withdrawCheckIn(
         data: { laneId, date, wasRest: existing.isRest, note: note ?? null },
       }),
     ]);
-  } catch {
+  } catch (err) {
     // A row deleted by another tab between the read and the write is a refusal,
     // not an unhandled rejection — the same treatment `deleteLane` gives it.
-    return { ok: false, error: "not-found" };
+    // Narrowed to that case on purpose: a dropped connection, or code live
+    // before CD's `prisma db push` has created CheckInRemoval, is an outage and
+    // must not read back to a parent as "there was nothing there".
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (err as { code?: string }).code === "P2025"
+    ) {
+      return { ok: false, error: "not-found" };
+    }
+    return { ok: false, error: "write-failed" };
   }
 
   revalidatePath("/");
