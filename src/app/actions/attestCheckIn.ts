@@ -78,6 +78,12 @@ export async function attestCheckIn(
   // A freeze spent on this day covered a day he had actually trained, so the
   // token goes back in the bank. He beat a boss for it. updateMany rather than
   // update because no matching row is the normal case and must not throw.
+  //
+  // Known composition: attest-then-withdraw refunds the token here and
+  // `withdrawCheckIn` does not re-spend it, so the pair leaves a spare token and
+  // the gap restored. Left as-is deliberately — the alternative is withdrawal
+  // silently spending a token a parent never offered, and FreezeOffer will put
+  // the choice back in front of the player on the next render anyway.
   await prisma.streakFreeze.updateMany({
     where: { laneId, usedDate: date },
     data: { usedDate: null },
