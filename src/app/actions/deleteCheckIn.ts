@@ -1,18 +1,37 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
+import { isWithinCheckInWindow } from "@/lib/checkInWindow";
+import { getTrainingDay } from "@/lib/trainingDay";
 
+/**
+ * Undo a check-in — the button on today's card.
+ *
+ * Bounded to the same window `createCheckIn` enforces, so Undo stays symmetric
+ * with the button that made the row. That is not an oversight about older days:
+ * an earlier day goes through `withdrawCheckIn`, which asks for the witness
+ * passphrase and leaves a `CheckInRemoval` behind. Unbounded, this action could
+ * quietly erase any day of the season from a page that only ever shows today.
+ *
+ * Scoped by `playerId`, not `userId`: on an account with two kids, a userId
+ * scope let a call reach the other kid's lane.
+ */
 export async function deleteCheckIn(
   laneId: string,
   date: Date
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
+
+  if (!isWithinCheckInWindow(date, getTrainingDay(new Date()))) {
+    return { ok: false, error: "outside-window" };
+  }
 
   const { count } = await prisma.checkIn.deleteMany({
     where: {
       laneId,
       date,
-      lane: { userId },
+      lane: { playerId },
     },
   });
 
