@@ -76,11 +76,14 @@ and the new `CheckInRemoval` model. Every addition is nullable or defaulted so
 - Every other model and field in the file is preserved unchanged.
 - A comment above `CheckInRemoval` states why withdrawal deletes the `CheckIn` row and logs it here rather than soft-deleting in place.
 
-**Deployment note:** this repo has no `prisma/migrations` directory and the
-Vercel build runs `prisma generate` only (`package.json` → `vercel-build`), so
-the schema reaches the database through a manual `prisma db push`. That push has
-to land BEFORE Story 8.8 or 8.9 deploys, or the actions will reference columns
-that do not exist.
+**Deployment note:** no manual push is needed. `.github/workflows/cd.yml` runs
+`prisma db push --accept-data-loss` against the production `DATABASE_URL` on
+every push to `main`, BEFORE `vercel build` and `vercel deploy` — so the columns
+land ahead of the code that reads them, and schema and app always move together.
+`vercel-build` deliberately does NOT push (reverted in `c619163`: a build must
+not mutate a database). What this does mean: these columns do not exist in
+production until the release PR merges to `main`, so Stories 8.8 and 8.9 cannot
+be exercised against prod before that merge.
 
 **Testing:** not applicable — Prisma schema file; there is no unit under test.
 
