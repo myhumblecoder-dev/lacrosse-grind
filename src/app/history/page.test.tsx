@@ -340,6 +340,71 @@ describe('Page', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: `Week of ${formatWeekLabel(getWeekStart(pastDay))}` })
     ).toBeInTheDocument()
-    expect(screen.queryByText(/This week —/)).not.toBeInTheDocument()
+    // The past week is not relabelled as the current one. A signed-in parent
+    // does now get a separate empty "This week" section carrying the amend
+    // door (epic 8), so the check is that the two are distinct headings rather
+    // than that the current week is absent.
+    expect(
+      screen.queryByRole('heading', {
+        level: 2,
+        name: `This week — ${formatWeekLabel(getWeekStart(pastDay))}`,
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  it('offers the amend door in the current week section for a signed-in viewer', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-link')).toHaveAttribute('href', '/amend')
+  })
+
+  it('never offers the amend door to a demo visitor', async () => {
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'demo' })
+
+    render(await Page())
+
+    expect(screen.queryByTestId('amend-link')).not.toBeInTheDocument()
+  })
+
+  it('still offers the door when the current week has nothing on the record', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-link')).toBeInTheDocument()
+    expect(screen.getByText(/Nothing on the record yet this week/)).toBeInTheDocument()
+  })
+
+  it('does not render two current-week sections when the week has check-ins', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    render(await Page())
+
+    expect(screen.getAllByTestId('amend-link')).toHaveLength(1)
+    expect(screen.queryByText(/Nothing on the record yet this week/)).not.toBeInTheDocument()
   })
 })

@@ -5,6 +5,7 @@ import DemoBanner from "@/components/DemoBanner"
 import { buildWeekRecaps } from "@/lib/weekRecap"
 import { formatWeekLabel, getWeekStart } from "@/lib/weekUtils"
 import { getTrainingDay } from "@/lib/trainingDay"
+import Link from "next/link"
 
 export const dynamic = "force-dynamic"
 
@@ -44,18 +45,58 @@ export default async function HistoryPage() {
   const recaps = buildWeekRecaps(lanes)
   const thisWeekStart = getWeekStart(today)
 
+  // The door to /amend sits with the week it opens onto, not at the top of the
+  // page: this is where a parent notices a week is wrong. It renders BESIDE the
+  // heading rather than inside it — a link within an h2 becomes part of the
+  // heading's accessible name. A demo visitor never sees it: nothing to amend,
+  // and no action they could reach.
+  const amendLink =
+    viewer.kind === "user" ? (
+      <Link
+        href="/amend"
+        data-testid="amend-link"
+        className="rounded-lg border border-zinc-700 px-3 py-1 text-sm font-normal text-zinc-300 transition-colors hover:bg-zinc-800"
+      >
+        Amend
+      </Link>
+    ) : null
+
+  // buildWeekRecaps builds its weeks FROM the check-ins, so a week with nothing
+  // in it gets no section at all — and that is exactly the week most likely to
+  // need amending. Without this, the one week with no door would be the one
+  // that needs it.
+  const hasThisWeek = recaps.some(
+    (r) => r.weekStart.getTime() === thisWeekStart.getTime()
+  )
+
   return (
     <main className="max-w-3xl mx-auto space-y-8 p-6">
       {viewer.kind === "demo" && <DemoBanner />}
       <h1 className="text-2xl font-bold">History</h1>
       <p className="mt-1 text-sm text-zinc-500">Your season, week by week — green for a session, blue for a rest day, purple for the day you beat a boss. Only days you showed up are here.</p>
+      {!hasThisWeek && amendLink && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold">
+              This week — {formatWeekLabel(thisWeekStart)}
+            </h2>
+            {amendLink}
+          </div>
+          <p className="text-sm text-zinc-500">
+            Nothing on the record yet this week.
+          </p>
+        </section>
+      )}
       {recaps.map((recap) => (
         <section key={recap.weekStart.getTime()} className="space-y-3">
-          <h2 className="text-lg font-semibold">
-            {recap.weekStart.getTime() === thisWeekStart.getTime()
-              ? <>This week — {formatWeekLabel(recap.weekStart)}</>
-              : <>Week of {formatWeekLabel(recap.weekStart)}</>}
-          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold">
+              {recap.weekStart.getTime() === thisWeekStart.getTime()
+                ? <>This week — {formatWeekLabel(recap.weekStart)}</>
+                : <>Week of {formatWeekLabel(recap.weekStart)}</>}
+            </h2>
+            {recap.weekStart.getTime() === thisWeekStart.getTime() && amendLink}
+          </div>
           {recap.lanes.map((lane) => (
             <div
               key={lane.id}
