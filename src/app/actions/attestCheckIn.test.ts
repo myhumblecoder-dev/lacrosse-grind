@@ -80,8 +80,9 @@ describe('attestCheckIn', () => {
 
   it('the lane lookup is scoped to the active player', async () => {
     await attestCheckIn(validInput())
-    const arg = vi.mocked(prisma.lane.findFirst).mock.calls[0][0]
-    expect(arg.where).toEqual({ id: 'lane-1', playerId: 'p1' })
+    expect(prisma.lane.findFirst).toHaveBeenCalledOnce()
+    expect(prisma.lane.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'lane-1', playerId: 'p1' } }))
   })
 
   it('a day before this week Monday returns outside-window', async () => {
