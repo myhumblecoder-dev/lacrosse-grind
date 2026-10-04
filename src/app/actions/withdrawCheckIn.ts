@@ -5,6 +5,7 @@ import { withdrawCheckInSchema } from "@/lib/validation";
 import { verifyWitnessPassphrase } from "@/lib/witnessPassphrase";
 import { isWithinAmendWindow } from "@/lib/amendWindow";
 import { getTrainingDay } from "@/lib/trainingDay";
+import { mayRemove } from "@/lib/checkInAuthorship";
 
 /**
  * Take a day back off the record.
@@ -78,19 +79,22 @@ export async function withdrawCheckIn(
 
   const existing = await prisma.checkIn.findUnique({
     where: { laneId_date: { laneId, date } },
-    select: { isRest: true },
+    select: { attestedAt: true, isRest: true },
   });
 
-  // Nothing to withdraw from a day that was never marked.
-  if (!existing) {
-    return { ok: false, error: "not-found" };
+  // Nothing to withdraw from a day that was never marked. A witness may withdraw
+  // anything else inside the window, the player's own entries included — that is
+  // the feature.
+  const verdict = mayRemove("witness", existing);
+  if (!verdict.allowed) {
+    return { ok: false, error: verdict.error };
   }
 
   try {
     await prisma.$transaction([
       prisma.checkIn.delete({ where: { laneId_date: { laneId, date } } }),
       prisma.checkInRemoval.create({
-        data: { laneId, date, wasRest: existing.isRest, note: note ?? null },
+        data: { laneId, date, wasRest: verdict.existing.isRest, note: note ?? null },
       }),
     ]);
   } catch (err) {

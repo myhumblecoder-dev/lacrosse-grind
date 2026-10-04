@@ -202,6 +202,7 @@ No `User` model — single-user MVP.
 | `src/app/actions/switchPlayer.ts` (+ `.test.ts`) | action | Epic 6: set the active-player cookie |
 | `src/components/PlayerSwitcher.tsx` (+ `.test.tsx`) | component | Epic 6: active-player switcher UI |
 | `src/lib/repairableGap.ts` (+ `.test.ts`) | lib | `findRepairableGap(checkIns, today, frozenDates?)` — the missed day worth a token, or null |
+| `src/lib/checkInAuthorship.ts` (+ `.test.ts`) | lib | Epic 8: `mayRecord`/`mayRemove` — who owns a `CheckIn` row and may this actor change it. The ONE place the attestation rule lives; all four check-in actions call it rather than re-deriving it |
 | `src/lib/witnessPassphrase.ts` (+ `.test.ts`) | lib | Epic 8: `hashWitnessPassphrase`/`verifyWitnessPassphrase` over `node:crypto` scrypt. Holds NO constants — `MIN_WITNESS_PASSPHRASE_LENGTH` lives in `validation.ts` so nothing client-reachable ever imports this |
 | `src/lib/amendWindow.ts` (+ `.test.ts`) | lib | Epic 8: `isWithinAmendWindow(date, today, floors?)` — the current running week, floored by lane `startsOn` and `seasonStart` |
 | `src/lib/amendWeek.ts` (+ `.test.ts`) | lib | Epic 8: `buildAmendWeek(lanes, today, seasonStart)` — Monday→today cells per lane, including the empty ones `buildWeekRecaps` omits |

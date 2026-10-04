@@ -5,6 +5,7 @@ import { attestCheckInSchema } from "@/lib/validation";
 import { verifyWitnessPassphrase } from "@/lib/witnessPassphrase";
 import { isWithinAmendWindow } from "@/lib/amendWindow";
 import { getTrainingDay } from "@/lib/trainingDay";
+import { mayRecord } from "@/lib/checkInAuthorship";
 
 /**
  * Put a past day of the current week on the record, as a witness.
@@ -67,24 +68,17 @@ export async function attestCheckIn(
     return { ok: false, error: "outside-window" };
   }
 
-  // Nothing to attest about a day that already says what the parent is saying.
-  //
-  // The grid hides "He showed up" on an already-green cell, but `day.state` comes
-  // from a snapshot: the kid can tap today between the page render and the
-  // click, and the action is callable directly besides. Without this the upsert
-  // would stamp `attestedAt` on the player's own row and relabel his tap as a
-  // parent's word — the laundering the schema refuses, in the other direction.
-  //
-  // A deliberate change still goes through: the grid's "Actually a rest day"
-  // sends the opposite `isRest`, and re-attesting a row a witness already owns
-  // is a witness editing their own statement.
+  // The grid hides "He showed up" on an already-green cell, but `day.state` is a
+  // snapshot — the kid can tap between the render and the click, and the action
+  // is callable directly besides. The rule is enforced here, not there.
   const existing = await prisma.checkIn.findUnique({
     where: { laneId_date: { laneId, date } },
     select: { attestedAt: true, isRest: true },
   });
 
-  if (existing && existing.attestedAt === null && existing.isRest === isRest) {
-    return { ok: false, error: "already-marked" };
+  const verdict = mayRecord("witness", existing, isRest);
+  if (!verdict.allowed) {
+    return { ok: false, error: verdict.error };
   }
 
   const attestedAt = new Date();
