@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
-import { requireUserId } from "@/lib/tenancy"
+import { requireUserId, requirePlayerId } from "@/lib/tenancy"
 import { playerLevel } from "@/lib/playerLevel"
 import { requiredLanes } from "@/lib/laneRequirement"
 import { resolveSeasonStart } from "@/lib/seasonAnchor"
@@ -16,9 +16,9 @@ import { getWeekStart } from "@/lib/weekUtils"
  * off-and-on mis-tap would otherwise hide check-ins the season still counts,
  * leaving the dashboard and the season grid telling different stories.
  */
-async function shouldRestart(id: string, userId: string): Promise<boolean> {
+async function shouldRestart(id: string, playerId: string): Promise<boolean> {
   const lane = await prisma.lane.findFirst({
-    where: { id, userId },
+    where: { id, playerId },
     select: { isActive: true },
   })
   if (!lane || lane.isActive) return false
@@ -34,16 +34,20 @@ export async function setLaneActive(
   isActive: boolean
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId()
+  const playerId = await requirePlayerId(userId)
   if (!id) return { ok: false, error: "missing-id" }
 
   if (!isActive) {
+    // Both this player's. Counted per account, a sibling's lanes let a kid bench
+    // one they should have been blocked from benching, and a sibling's defeats
+    // raised the floor they were measured against.
     const activeCount = await prisma.lane.count({
-      where: { isActive: true, userId },
+      where: { isActive: true, playerId },
     })
     const defeats = await prisma.bossBattle.count({
       where: {
         completedAt: { not: null },
-        lane: { userId },
+        lane: { playerId },
       },
     })
 
@@ -58,7 +62,7 @@ export async function setLaneActive(
   try {
     const data: { isActive: boolean; startsOn?: Date } = { isActive }
 
-    if (isActive && (await shouldRestart(id, userId))) {
+    if (isActive && (await shouldRestart(id, playerId))) {
       // Coming back into play restarts the clock: the lane gets its first
       // whole week rather than the remainder of this one. Retiring leaves the
       // stamp alone — there is nothing to schedule.
@@ -66,7 +70,7 @@ export async function setLaneActive(
     }
 
     const { count } = await prisma.lane.updateMany({
-      where: { id, userId },
+      where: { id, playerId },
       data,
     })
 

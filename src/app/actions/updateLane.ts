@@ -1,6 +1,6 @@
 import { prisma as db } from "@/lib/db";
 import { laneSchema } from "@/lib/validation";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { revalidatePath } from "next/cache";
 import { resolveSeasonStart } from "@/lib/seasonAnchor";
 import { getTrainingDay } from "@/lib/trainingDay";
@@ -17,6 +17,7 @@ import { effectiveTarget } from "@/lib/effectiveTarget";
  */
 export async function updateLane(id: string, patch: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
   try {
     // Validate the patch using the partial schema
     const parsed = laneSchema.partial().safeParse(patch);
@@ -32,7 +33,7 @@ export async function updateLane(id: string, patch: unknown): Promise<{ ok: true
     // an empty `data` reports count 0 even for a row that exists and is owned
     // — which would read as "not-found" and drop the edit on the floor.
     const lane = await db.lane.findFirst({
-      where: { id, userId },
+      where: { id, playerId },
       include: { targetChanges: true },
     });
     if (!lane) {
@@ -40,7 +41,7 @@ export async function updateLane(id: string, patch: unknown): Promise<{ ok: true
     }
 
     if (Object.keys(immediate).length > 0) {
-      await db.lane.updateMany({ where: { id, userId }, data: immediate });
+      await db.lane.updateMany({ where: { id, playerId }, data: immediate });
     }
 
     if (targetPerWeek !== undefined) {

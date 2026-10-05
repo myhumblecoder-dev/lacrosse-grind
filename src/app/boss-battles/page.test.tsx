@@ -66,10 +66,10 @@ describe('Page', () => {
     render(PageComponent)
 
     expect(db.lane.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ userId: userId, isActive: true })
+      where: expect.objectContaining({ playerId: 'p1', isActive: true })
     }))
     expect(db.lane.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ userId: userId, isActive: false })
+      where: expect.objectContaining({ playerId: 'p1', isActive: false })
     }))
   })
 

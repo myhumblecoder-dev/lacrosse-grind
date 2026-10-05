@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { askCoach } from "@/lib/coach";
 import { revalidatePath } from "next/cache";
 import { playerLevel } from "@/lib/playerLevel";
@@ -19,12 +19,13 @@ export async function completeBossBattle(battleId: string): Promise<{
   error: string;
 }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
 
   const battle = await prisma.bossBattle.findFirst({
     where: {
       id: battleId,
       lane: {
-        userId
+        playerId
       }
     },
     include: {
@@ -46,10 +47,12 @@ export async function completeBossBattle(battleId: string): Promise<{
   });
 
   // 2. Calculate progress
+  // This player's defeats drive this player's level, the freeze award and the
+  // avatar. Counted per account, beating a boss levelled up the sibling too.
   const defeats = await prisma.bossBattle.count({
     where: {
       completedAt: { not: null },
-      lane: { userId }
+      lane: { playerId }
     }
   });
 

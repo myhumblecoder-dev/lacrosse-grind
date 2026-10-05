@@ -16,15 +16,16 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
 import { prisma } from '@/lib/db'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 
 describe('swapLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.lane.update).mockResolvedValue({} as any)
     vi.mocked(prisma.$transaction).mockResolvedValue([] as any)
     vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'any' } as any)
@@ -128,7 +129,7 @@ describe('swapLane', () => {
 
     expect(result).toEqual({ ok: false, error: 'not-found' })
     expect(prisma.lane.findFirst).toHaveBeenCalledWith({
-      where: { id: 'foreign-id', userId: 'u1' },
+      where: { id: 'foreign-id', playerId: 'p1' },
     })
   })
 
@@ -143,7 +144,7 @@ describe('swapLane', () => {
 
     expect(result).toEqual({ ok: false, error: 'not-found' })
     expect(prisma.lane.findFirst).toHaveBeenCalledWith({
-      where: { id: 'foreign-in', userId: 'u1' },
+      where: { id: 'foreign-in', playerId: 'p1' },
     })
   })
 
@@ -153,7 +154,7 @@ describe('swapLane', () => {
     await swapLane({ outLaneId: 'lane-2' })
 
     expect(prisma.lane.count).toHaveBeenCalledWith({
-      where: { isActive: true, userId: 'u1' },
+      where: { isActive: true, playerId: 'p1' },
     })
   })
 

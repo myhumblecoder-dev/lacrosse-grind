@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { rerollBossChallenge } from './rerollBossChallenge'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { askCoach } from '@/lib/coach'
 import { revalidatePath } from 'next/cache'
 import { playerLevel } from '@/lib/playerLevel'
@@ -21,7 +21,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 vi.mock('@/lib/coach', () => ({ askCoach: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
@@ -31,6 +31,7 @@ describe('rerollBossChallenge', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 

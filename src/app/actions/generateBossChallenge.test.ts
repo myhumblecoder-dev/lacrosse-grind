@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { generateBossChallenge } from './generateBossChallenge'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { askCoach } from '@/lib/coach'
 import { revalidatePath } from 'next/cache'
 import { playerLevel } from '@/lib/playerLevel'
@@ -21,7 +21,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 vi.mock('@/lib/coach', () => ({ askCoach: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
@@ -33,6 +33,7 @@ describe('generateBossChallenge', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     process.env.COACH_DAILY_LIMIT = '5'
   })
 
@@ -43,7 +44,7 @@ describe('generateBossChallenge', () => {
 
     expect(result).toEqual({ ok: false, error: 'not-found' })
     expect(prisma.lane.findFirst).toHaveBeenCalledWith({
-      where: { id: laneId, userId }
+      where: { id: laneId, playerId: 'p1' }
     })
     expect(askCoach).not.toHaveBeenCalled()
   })
@@ -140,7 +141,7 @@ describe('generateBossChallenge', () => {
     // But we can verify that the logic for rank calculation was executed by checking the count call.
     expect(prisma.bossBattle.count).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
-        lane: { userId }
+        lane: { playerId: 'p1' }
       })
     }))
   })

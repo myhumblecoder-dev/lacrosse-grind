@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
-import { requireUserId } from "@/lib/tenancy"
+import { requireUserId, requirePlayerId } from "@/lib/tenancy"
 
 export async function deleteLane(
   id: string
@@ -8,21 +8,26 @@ export async function deleteLane(
   if (!id) return { ok: false, error: "missing-id" }
 
   const userId = await requireUserId()
+  const playerId = await requirePlayerId(userId)
 
   try {
     // Check if a season is currently running FIRST — a running season
     // refuses the delete no matter whose lane the id names.
+    //
+    // This player's season, not the household's: scoped to the account, one kid
+    // with a season running froze lane deletion for their sibling, and a kid
+    // with none could delete lanes out from under a sibling mid-season.
     const prize = await prisma.prize.findUnique({
-      where: { userId },
+      where: { playerId },
     })
 
     if (prize?.seasonStart) {
       return { ok: false, error: 'season-running' }
     }
 
-    // Owner-scoped existence check: a foreign lane reads as absent.
+    // Player-scoped existence check: another kid's lane reads as absent.
     const lane = await prisma.lane.findFirst({
-      where: { id, userId },
+      where: { id, playerId },
     })
 
     if (!lane) {

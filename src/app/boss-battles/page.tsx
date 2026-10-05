@@ -83,10 +83,17 @@ async function loadBattles(viewer: Viewer, trainingDay: Date) {
     }
   }
 
-  const { userId } = viewer
+  // This player's, like every other page. Left on userId it rendered BOTH kids'
+  // lanes and both kids' benched lanes as swap candidates — while the actions
+  // behind those buttons match on playerId, so tapping Generate, Re-roll,
+  // Complete or Swap on a sibling's lane would come back not-found. The defeats
+  // count matters just as much: the household total set the rank badge and the
+  // re-roll allowance this page displays, so it could offer a second re-roll
+  // that rerollBossChallenge then refuses.
+  const { playerId } = viewer
   const [lanes, inactiveLanes, defeats] = await Promise.all([
     db.lane.findMany({
-      where: { isActive: true, userId },
+      where: { isActive: true, playerId },
       orderBy: { sortOrder: "asc" },
       include: {
         checkIns: { where: { date: { gte: lastWeekStart } } },
@@ -98,11 +105,11 @@ async function loadBattles(viewer: Viewer, trainingDay: Date) {
     }),
     // What a lane change would cost right now, decided once for the page.
     db.lane.findMany({
-      where: { isActive: false, userId },
+      where: { isActive: false, playerId },
       select: { id: true, name: true, emoji: true },
     }),
     db.bossBattle.count({
-      where: { completedAt: { not: null }, lane: { userId } },
+      where: { completedAt: { not: null }, lane: { playerId } },
     }),
   ])
 

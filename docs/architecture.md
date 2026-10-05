@@ -160,6 +160,23 @@ model Player {
 }
 ```
 
+**`Prize.userId` is NOT unique** (epic 8 follow-up, #549). One prize per *player*
+is the domain rule, so an account with two kids holds two `Prize` rows sharing a
+`userId`; `User` therefore has `prizes Prize[]`, not `prize Prize?`. While that
+column was unique, `upsertPrize` keying on it could only ever maintain one row per
+account — a second kid's prize found the first kid's row and overwrote it, and
+because the create never set `playerId`, no reader could then find either. Prize
+and season writes are keyed on `playerId`; `userId` survives only as the ownership
+link used by account deletion.
+
+**Scoping rule for actions:** anything belonging to a *kid* — lanes, check-ins,
+boss battles, freezes, the prize, `seasonStart` — is scoped by `playerId`. Only
+things belonging to the *account* stay on `userId`: the player roster and its cap,
+`MAX_LANES_PER_USER`, `CoachCall` (the LLM spend cap is billing, per account), the
+witness passphrase, and account deletion. Counting a kid's progress across the
+account is the bug class #549 covers: a sibling's defeats set the wrong rank, and
+a sibling's lanes moved the wrong goalposts.
+
 The Auth.js models (`User`, `Account`, `Session`, `VerificationToken`) are not
 mirrored above — they are the adapter's, unchanged except for one app column:
 `User.witnessHash String?`, the scrypt `"salt:hash"` of the witness passphrase
