@@ -460,7 +460,7 @@ describe('AmendWeekGrid', () => {
     expect(screen.getByTestId('amend-grid')).toHaveTextContent(/not need the old one/)
   })
 
-  it('offers the way out when no passphrase is set at all', async () => {
+  it('does not ask "forgotten it?" about a passphrase that was never set', async () => {
     const user = userEvent.setup()
     const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'no-passphrase' }) }
     render(<AmendWeekGrid {...p} />)
@@ -469,7 +469,46 @@ describe('AmendWeekGrid', () => {
     await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
     await user.click(screen.getByTestId('amend-showed-up'))
 
-    expect(screen.getByTestId('amend-passphrase-recovery')).toBeInTheDocument()
+    // Its own copy already sends them to /account; a second link telling them
+    // they will not need the old one is about a passphrase that does not exist.
+    expect(screen.queryByTestId('amend-passphrase-recovery')).not.toBeInTheDocument()
+    expect(screen.getByTestId('amend-error')).toHaveTextContent(/Account page/)
+  })
+
+  it('still says something when a refusal arrives with an empty code', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: '' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toHaveTextContent(/another go/)
+  })
+
+  it('a refusal with no code at all still says something', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toBeInTheDocument()
+  })
+
+  it('a crashed action reads differently from a refusal', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockRejectedValue(new Error('down')) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toHaveTextContent(/Something went wrong/)
   })
 
   it('does not offer it for a failure that has nothing to do with the passphrase', async () => {

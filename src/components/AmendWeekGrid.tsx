@@ -60,6 +60,11 @@ const ERROR_COPY: Record<string, string> = {
   "not-found": "That day has already changed — reload to see where it stands.",
   withdrawn: "That day was taken off the record. Put it back with He showed up.",
   "write-failed": "That didn't save — try again in a moment.",
+  // The two local sentinels. Without entries of their own a rejected action read
+  // identically to an unrecognised refusal code, losing the distinction between
+  // "the server said no" and "the server never answered".
+  threw: "Something went wrong — give it another go.",
+  unknown: "That didn't go through — give it another go.",
 }
 
 const STATE_LABEL: Record<AmendDayState, string> = {
@@ -115,7 +120,9 @@ export default function AmendWeekGrid({
         if (result.ok) {
           close()
         } else {
-          setErrorCode(result.error ?? "unknown")
+          // `||`, not `??`: an empty-string code would survive `??` and then be
+          // swallowed by the truthiness gate below, leaving no message at all.
+          setErrorCode(result.error || "unknown")
         }
       } catch {
         // A rejected transition otherwise escalates to the nearest error
@@ -342,7 +349,10 @@ export default function AmendWeekGrid({
           {/* Forgetting the passphrase is not a lockout — it can be replaced
               without the old one — but nothing said so, which made it one in
               practice. The way out belongs at the moment of being stuck. */}
-          {(errorCode === "bad-passphrase" || errorCode === "no-passphrase") && (
+          {/* Only for a passphrase that exists and did not match. The
+              no-passphrase copy already sends them to /account, and "forgotten
+              it?" is nonsense about one never set. */}
+          {errorCode === "bad-passphrase" && (
             <p className="text-sm text-zinc-400">
               Forgotten it?{" "}
               <Link
