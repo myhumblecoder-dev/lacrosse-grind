@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { deleteLane } from './deleteLane'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -21,12 +21,14 @@ vi.mock('next/cache', () => ({
 
 vi.mock('@/lib/tenancy', () => ({
   requireUserId: vi.fn(),
+  requirePlayerId: vi.fn(),
 }))
 
 describe('deleteLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+vi.mocked(requirePlayerId).mockResolvedValue('p1')
   })
 
   it('another user\'s lane id returns not-found without deleting', async () => {
@@ -60,7 +62,7 @@ describe('deleteLane', () => {
     // Assert
     expect(result).toEqual({ ok: false, error: 'season-running' })
     expect(prisma.prize.findUnique).toHaveBeenCalledWith({
-      where: { userId: 'u1' },
+      where: { playerId: 'p1' },
     })
     expect(prisma.$transaction).not.toHaveBeenCalled()
   })

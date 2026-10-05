@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { askCoach } from "@/lib/coach";
 import { buildChallengePrompt } from "@/lib/bossChallenge";
 import { revalidatePath } from "next/cache";
@@ -7,9 +7,10 @@ import { playerLevel } from "@/lib/playerLevel";
 
 export async function rerollBossChallenge(battleId: string): Promise<{ ok: true; challenge: string } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
 
   const battle = await prisma.bossBattle.findFirst({
-    where: { id: battleId, lane: { userId } },
+    where: { id: battleId, lane: { playerId } },
     include: { lane: true },
   });
 
@@ -21,10 +22,11 @@ export async function rerollBossChallenge(battleId: string): Promise<{ ok: true;
     return { ok: false, error: 'already-defeated' };
   }
 
+  // This player's rank decides how many re-rolls they get, so count only theirs.
   const defeats = await prisma.bossBattle.count({
     where: {
       completedAt: { not: null },
-      lane: { userId },
+      lane: { playerId },
     },
   });
 

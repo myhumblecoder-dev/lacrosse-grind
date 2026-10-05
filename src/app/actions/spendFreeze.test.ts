@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { spendFreeze } from './spendFreeze'
 
 vi.mock('@/lib/db', () => ({
@@ -11,7 +11,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
 const d = (y: number, m: number, day: number) => new Date(Date.UTC(y, m, day))
 
@@ -36,6 +36,7 @@ describe('spendFreeze', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-05T18:00:00.000Z'))
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.lane.findFirst).mockResolvedValue(laneWithGap as never)
     vi.mocked(prisma.streakFreeze.findFirst).mockResolvedValue({ id: 'fz-1' } as never)
     vi.mocked(prisma.streakFreeze.update).mockResolvedValue({ id: 'fz-1' } as never)
@@ -58,7 +59,7 @@ describe('spendFreeze', () => {
     await spendFreeze('lane-1', GAP)
 
     expect(prisma.streakFreeze.findFirst).toHaveBeenCalledWith({
-      where: { laneId: 'lane-1', usedDate: null, lane: { userId: 'u1' } },
+      where: { laneId: 'lane-1', usedDate: null, lane: { playerId: 'p1' } },
     })
   })
 

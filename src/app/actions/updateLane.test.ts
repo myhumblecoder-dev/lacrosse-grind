@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { prisma as db } from '@/lib/db'
 import type { Lane } from '@prisma/client'
 import { updateLane } from './updateLane'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { revalidatePath } from 'next/cache'
 
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
 vi.mock('@/lib/db', () => ({
   prisma: {
@@ -117,6 +117,7 @@ describe('updateLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(db.lane.findFirst).mockResolvedValue(
       makeLane({ id: 'lane-123', targetPerWeek: 3, targetChanges: [] } as never)
     )
@@ -131,7 +132,7 @@ describe('updateLane', () => {
 
     expect(result).toEqual({ ok: true })
     expect(db.lane.updateMany).toHaveBeenCalledWith({
-      where: { id, userId: 'u1' },
+      where: { id, playerId: 'p1' },
       data: patch,
     })
     expect(revalidatePath).toHaveBeenCalledWith('/lanes')
@@ -187,7 +188,7 @@ describe('updateLane', () => {
     await updateLane('lane-1', { name: 'X' })
 
     expect(db.lane.updateMany).toHaveBeenCalledWith({
-      where: { id: 'lane-1', userId: 'u1' },
+      where: { id: 'lane-1', playerId: 'p1' },
       data: { name: 'X' },
     })
   })
@@ -243,7 +244,7 @@ describe('updateLane — a new target starts next week', () => {
     await updateLane('lane-1', { name: 'Wall ball', targetPerWeek: 5 })
 
     expect(db.lane.updateMany).toHaveBeenCalledWith({
-      where: { id: 'lane-1', userId: 'u1' },
+      where: { id: 'lane-1', playerId: 'p1' },
       data: { name: 'Wall ball' },
     })
     expect(db.laneTarget.upsert).toHaveBeenCalled()

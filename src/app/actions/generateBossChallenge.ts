@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { askCoach } from "@/lib/coach";
 import { buildChallengePrompt } from "@/lib/bossChallenge";
 import { getTrainingDay } from "@/lib/trainingDay";
@@ -8,9 +8,10 @@ import { revalidatePath } from "next/cache";
 
 export async function generateBossChallenge(laneId: string, weekStarting: Date): Promise<{ ok: true; challenge: string } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
 
   const lane = await prisma.lane.findFirst({
-    where: { id: laneId, userId }
+    where: { id: laneId, playerId }
   });
 
   if (!lane) {
@@ -25,8 +26,10 @@ export async function generateBossChallenge(laneId: string, weekStarting: Date):
     return { ok: true, challenge: existing.challenge };
   }
 
+  // This player's defeats set this player's rank. Scoped to the account, a
+  // sibling's victories decided which boss this kid was handed.
   const defeats = await prisma.bossBattle.count({
-    where: { completedAt: { not: null }, lane: { userId } }
+    where: { completedAt: { not: null }, lane: { playerId } }
   });
 
   const rank = playerLevel(defeats);
