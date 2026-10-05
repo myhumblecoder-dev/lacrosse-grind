@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { completeBossBattle } from '@/app/actions/completeBossBattle'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { askCoach } from '@/lib/coach'
 import { revalidatePath } from 'next/cache'
 import { playerLevel } from '@/lib/playerLevel'
@@ -21,7 +21,7 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 vi.mock('@/lib/coach', () => ({ askCoach: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
@@ -33,6 +33,7 @@ describe('completeBossBattle', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     vi.mocked(prisma.bossBattle.findFirst).mockResolvedValue(null as any)
     // Minting a freeze goes through awardFreeze, which confirms the lane is

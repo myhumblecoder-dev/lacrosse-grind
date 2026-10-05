@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma as db } from '@/lib/db'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import type { Prize } from '@prisma/client'
 import { uploadPrizePhoto } from './uploadPrizePhoto'
 import { put, del } from '@vercel/blob'
@@ -25,6 +25,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/tenancy', () => ({
   requireUserId: vi.fn(),
+  requirePlayerId: vi.fn(),
 }))
 
 vi.mock('@vercel/blob', () => ({
@@ -57,6 +58,7 @@ describe('uploadPrizePhoto', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(USER_ID)
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     // Default: hostnames resolve to an ordinary public address.
     vi.mocked(resolveHost).mockResolvedValue(['93.184.216.34'])
   })
@@ -73,10 +75,10 @@ describe('uploadPrizePhoto', () => {
     await uploadPrizePhoto(formData)
 
     expect(db.prize.findUnique).toHaveBeenCalledWith({
-      where: { userId: USER_ID },
+      where: { playerId: 'p1' },
     })
     expect(db.prize.update).toHaveBeenCalledWith({
-      where: { userId: USER_ID },
+      where: { playerId: 'p1' },
       data: { photoUrl: mockUrl },
     })
   })
@@ -107,7 +109,7 @@ describe('uploadPrizePhoto', () => {
     
     const callArgs = vi.mocked(put).mock.calls[0]
     const pathname = callArgs[0] as string
-    expect(pathname.startsWith(`${USER_ID}/`)).toBe(true)
+    expect(pathname.startsWith(`${USER_ID}/p1/`)).toBe(true)
   })
 
   it('uploads an image and stores the url', async () => {
@@ -178,7 +180,7 @@ describe('uploadPrizePhoto', () => {
 
       expect(result).toEqual({ ok: true, url: 'https://blob.test/prize/ps5.png' })
       expect(db.prize.update).toHaveBeenCalledWith({
-        where: { userId: USER_ID },
+        where: { playerId: 'p1' },
         data: { photoUrl: 'https://blob.test/prize/ps5.png' },
       })
     })
@@ -305,7 +307,7 @@ describe('uploadPrizePhoto', () => {
       await uploadPrizePhoto(fd)
 
       const pathname = vi.mocked(put).mock.calls[0][0] as string
-      expect(pathname.startsWith(`${USER_ID}/`)).toBe(true)
+      expect(pathname.startsWith(`${USER_ID}/p1/`)).toBe(true)
       expect(pathname).not.toContain('..')
     })
 
@@ -318,7 +320,22 @@ describe('uploadPrizePhoto', () => {
       await uploadPrizePhoto(fd)
 
       const pathname = vi.mocked(put).mock.calls[0][0] as string
-      expect(pathname).toBe(`${USER_ID}/escape.png`)
+      expect(pathname).toBe(`${USER_ID}/p1/escape.png`)
+    })
+
+    it('separates two kids on one account, so the same filename cannot collide', async () => {
+      const { requirePlayerId } = await import('@/lib/tenancy')
+      vi.mocked(requirePlayerId).mockResolvedValue('p2')
+
+      const fd = new FormData()
+      fd.append('photo', new File(['bytes'], 'stick.png', { type: 'image/png' }))
+      await uploadPrizePhoto(fd)
+
+      // put() defaults addRandomSuffix to false and throws rather than overwrite,
+      // and safeBlobName is deterministic — so a shared account path meant the
+      // second kid to upload `stick.png` got a raw SDK error.
+      const pathname = vi.mocked(put).mock.calls[0][0] as string
+      expect(pathname).toBe(`${USER_ID}/p2/stick.png`)
     })
   })
 })

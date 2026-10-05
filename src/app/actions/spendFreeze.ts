@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { getTrainingDay } from "@/lib/trainingDay";
 import { findRepairableGap } from "@/lib/repairableGap";
 
@@ -18,9 +18,10 @@ export async function spendFreeze(
   date: Date
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
 
   const lane = await prisma.lane.findFirst({
-    where: { id: laneId, userId },
+    where: { id: laneId, playerId },
     include: {
       checkIns: { select: { date: true, isRest: true } },
       streakFreezes: { where: { usedDate: { not: null } }, select: { usedDate: true } },
@@ -53,7 +54,7 @@ export async function spendFreeze(
   }
 
   const freeze = await prisma.streakFreeze.findFirst({
-    where: { laneId, usedDate: null, lane: { userId } },
+    where: { laneId, usedDate: null, lane: { playerId } },
   });
 
   if (!freeze) {

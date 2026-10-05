@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { swapSchema } from '@/lib/validation'
 import { validateSwap } from '@/lib/validateSwap'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { playerLevel } from '@/lib/playerLevel'
 import { requiredLanes } from '@/lib/laneRequirement'
 import { resolveSeasonStart } from '@/lib/seasonAnchor'
@@ -26,18 +26,23 @@ type SwapResult = { ok: true } | { ok: false; error: string }
  */
 export async function swapLane(input: unknown): Promise<SwapResult> {
   const userId = await requireUserId()
+  const playerId = await requirePlayerId(userId)
 
   const parsed = swapSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: 'validation' }
 
   const { outLaneId, inLaneId } = parsed.data
 
+  // Both counts are THIS player's. Scoped to the account, a second kid's lanes
+  // inflated the active count that decides whether a swap is allowed, and their
+  // defeats inflated the rank that sets the floor — so one kid's progress
+  // silently moved the other kid's goalposts.
   const activeLaneCount = await prisma.lane.count({
-    where: { isActive: true, userId }
+    where: { isActive: true, playerId }
   })
 
   const defeats = await prisma.bossBattle.count({
-    where: { completedAt: { not: null }, lane: { userId } }
+    where: { completedAt: { not: null }, lane: { playerId } }
   })
 
   const floor = requiredLanes(playerLevel(defeats).level)
@@ -48,16 +53,16 @@ export async function swapLane(input: unknown): Promise<SwapResult> {
     return { ok: false, error: 'replacement-required' }
   }
 
-  // Verify ownership of outLaneId
+  // Verify the lane is this player's, not merely this account's.
   const outLane = await prisma.lane.findFirst({
-    where: { id: outLaneId, userId }
+    where: { id: outLaneId, playerId }
   })
   if (!outLane) return { ok: false, error: 'not-found' }
 
   // Verify ownership of inLaneId if present
   if (inLaneId) {
     const inLane = await prisma.lane.findFirst({
-      where: { id: inLaneId, userId }
+      where: { id: inLaneId, playerId }
     })
     if (!inLane) return { ok: false, error: 'not-found' }
   }

@@ -1,7 +1,7 @@
 import { put, del } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma as db } from "@/lib/db";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { assertFetchableUrl } from "@/lib/fetchableUrl";
 import { resolveHost } from "@/lib/resolveHost";
 
@@ -15,8 +15,8 @@ type Payload = { body: File | Blob; name: string };
 /**
  * Reduce an untrusted filename to something safe to append to a blob path.
  *
- * Uploads are stored at `${userId}/${name}`, so the user id is the only thing
- * separating one family's photos from another's. Both sources of that name are
+ * Uploads are stored at `${userId}/${playerId}/${name}`, so the user id is the
+ * only thing separating one family's photos from another's. Both sources of that name are
  * attacker-controlled — the last path segment of a pasted URL, and the
  * filename in a multipart upload — and a name of `..` would climb straight out
  * of that namespace.
@@ -130,6 +130,7 @@ async function fetchRemoteImage(
 
 export async function uploadPrizePhoto(formData: FormData): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
   const file = formData.get("photo");
   const remoteUrl = formData.get("photoUrl");
 
@@ -155,17 +156,26 @@ export async function uploadPrizePhoto(formData: FormData): Promise<{ ok: true; 
 
   try {
     // 1. Upload the new image — same path whether it came or a link
-    const pathname = `${userId}/${payload.name}`;
+    //
+    // The player goes in the path, not just the account. `put` defaults
+    // `addRandomSuffix` to false and throws rather than overwrite, and
+    // `safeBlobName` is deterministic — with a fallback of the literal "photo"
+    // when a pasted URL has no usable segment. So on a shared account path, the
+    // second kid to upload `stick.jpg`, or to paste any second link, would have
+    // hit a raw SDK error. Allowing overwrite instead would be worse: both prize
+    // rows would point at one blob, so one kid's photo would silently become the
+    // other's, and replacing either would break the survivor's link.
+    const pathname = `${userId}/${playerId}/${payload.name}`;
     const blob = await put(pathname, payload.body, { access: "public" });
     const newUrl = blob.url;
 
     // 2. Update the database
     const prize = await db.prize.findUnique({
-      where: { userId },
+      where: { playerId },
     });
 
     await db.prize.update({
-      where: { userId },
+      where: { playerId },
       data: { photoUrl: newUrl },
     });
 

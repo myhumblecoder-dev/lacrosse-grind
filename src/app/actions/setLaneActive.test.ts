@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { setLaneActive } from './setLaneActive'
 import { playerLevel } from '@/lib/playerLevel'
 import { requiredLanes } from '@/lib/laneRequirement'
@@ -14,12 +14,13 @@ vi.mock('@/lib/db', () => ({
   } 
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn() }))
+vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
 describe('setLaneActive', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.lane.count).mockResolvedValue(4)
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
     // Default: the lane is retired and untouched this week, so switching it
@@ -50,7 +51,7 @@ describe('setLaneActive', () => {
     
     expect(result).toEqual({ ok: true })
     expect(prisma.lane.updateMany).toHaveBeenCalledWith({
-      where: { id: 'lane-to-activate', userId: 'u1' },
+      where: { id: 'lane-to-activate', playerId: 'p1' },
       data: { isActive: true, startsOn: expect.any(Date) },
     })
   })
@@ -62,7 +63,7 @@ describe('setLaneActive', () => {
     
     expect(result).toEqual({ ok: true })
     expect(prisma.lane.updateMany).toHaveBeenCalledWith({
-      where: { id: 'lane-1', userId: 'u1' },
+      where: { id: 'lane-1', playerId: 'p1' },
       data: { isActive: false },
     })
     expect(revalidatePath).toHaveBeenCalledWith('/lanes')
@@ -130,7 +131,7 @@ describe('setLaneActive', () => {
 
     expect(result).toEqual({ ok: false, error: 'not-found' })
     expect(prisma.lane.updateMany).toHaveBeenCalledWith({
-      where: { id: 'other-lane-id', userId: 'u1' },
+      where: { id: 'other-lane-id', playerId: 'p1' },
       data: { isActive: true, startsOn: expect.any(Date) },
     })
   })

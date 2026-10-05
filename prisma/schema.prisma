@@ -152,7 +152,13 @@ model CoachCall {
 // "prize" id; new rows get cuids and every row binds to a user.
 model Prize {
   id          String    @id @default(cuid())
-  userId      String?   @unique
+  // NOT unique. One prize per PLAYER is the domain rule, and an account with two
+  // kids therefore holds two rows sharing this userId. While it was unique,
+  // `upsertPrize` keying on it could only ever maintain one row per account: a
+  // second kid's prize found the first kid's row and overwrote it, and because
+  // the write never set playerId, neither kid's prize page could find one.
+  // Ownership and tenancy are checked through the player, not this column.
+  userId      String?
   user        User?     @relation(fields: [userId], references: [id])
   // One prize per player (the domain rule) — and findUnique-by-playerId in
   // the pages requires the unique index. Nullable stays additive-safe.
@@ -165,6 +171,12 @@ model Prize {
   seasonStart DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  // Dropping @unique from userId dropped the only index on it, and two callers
+  // still filter by it: deleteAccount's deleteMany and ensureDefaultPlayer's
+  // orphan backfill. Every other model carries an explicit index for its
+  // tenancy column; this keeps Prize consistent with them.
+  @@index([userId])
 }
 
 // Player — a kid tracked under one account (epic 6 multi-player). Private to
@@ -205,7 +217,7 @@ model User {
   accounts Account[]
   sessions Session[]
   lanes    Lane[]
-  prize    Prize?
+  prizes   Prize[]
   players  Player[]
 }
 

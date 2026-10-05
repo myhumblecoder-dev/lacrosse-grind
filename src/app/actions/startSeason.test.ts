@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { prisma } from '@/lib/db'
 import { startSeason } from './startSeason'
 import { resolveSeasonStart } from '@/lib/seasonAnchor'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { playerLevel } from '@/lib/playerLevel'
 import { requiredLanes } from '@/lib/laneRequirement'
 
@@ -18,7 +18,8 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('@/lib/tenancy', () => ({
-  requireUserId: vi.fn()
+  requireUserId: vi.fn(),
+  requirePlayerId: vi.fn()
 }))
 
 describe('startSeason', () => {
@@ -30,6 +31,7 @@ describe('startSeason', () => {
     vi.setSystemTime(new Date(Date.UTC(2024, 4, 20)))
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 
@@ -37,7 +39,7 @@ describe('startSeason', () => {
     vi.useRealTimers()
   })
 
-  it('the lane count and prize are scoped to the owner', async () => {
+  it('the lane count and prize are scoped to the active player, not the account', async () => {
     const mockPrize = { id: 'prize', userId: userId, title: 'Test Prize' }
     vi.mocked(prisma.lane.count).mockResolvedValue(3)
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(mockPrize as any)
@@ -47,13 +49,16 @@ describe('startSeason', () => {
 
     expect(requireUserId).toHaveBeenCalled()
     expect(prisma.lane.count).toHaveBeenCalledWith({
-      where: { isActive: true, userId }
+      where: { isActive: true, playerId: 'p1' }
+    })
+    expect(prisma.bossBattle.count).toHaveBeenCalledWith({
+      where: { completedAt: { not: null }, lane: { playerId: 'p1' } }
     })
     expect(prisma.prize.findUnique).toHaveBeenCalledWith({
-      where: { userId }
+      where: { playerId: 'p1' }
     })
     expect(prisma.prize.update).toHaveBeenCalledWith({
-      where: { userId },
+      where: { playerId: 'p1' },
       data: expect.any(Object)
     })
   })
@@ -82,7 +87,7 @@ describe('startSeason', () => {
     const result = await startSeason()
 
     expect(prisma.prize.update).toHaveBeenCalledWith({
-      where: { userId },
+      where: { playerId: 'p1' },
       data: expect.any(Object)
     })
 

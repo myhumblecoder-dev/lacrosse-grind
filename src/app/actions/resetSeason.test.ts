@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma } from '@/lib/db'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { resetSeason } from './resetSeason'
 
 vi.mock('@/lib/db', () => ({
@@ -15,13 +15,15 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('@/lib/tenancy', () => ({
-  requireUserId: vi.fn()
+  requireUserId: vi.fn(),
+  requirePlayerId: vi.fn()
 }))
 
 describe('resetSeason', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
   })
 
   it('the reset is scoped to the owner', async () => {
@@ -31,7 +33,7 @@ describe('resetSeason', () => {
 
     expect(requireUserId).toHaveBeenCalled()
     expect(prisma.prize.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1' },
+      where: { playerId: 'p1' },
       data: { seasonStart: null }
     })
   })
@@ -42,7 +44,7 @@ describe('resetSeason', () => {
     await resetSeason()
 
     expect(prisma.prize.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'u1' },
+      where: { playerId: 'p1' },
       data: { seasonStart: null }
     })
   })
