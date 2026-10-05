@@ -11,11 +11,20 @@ what they are — a witness statement, not a tap the player made.
 
 **The app has no parent.** `User` is the Google account; `Player` is the kid
 (`src/lib/viewer.ts`, `src/lib/tenancy.ts`). The kid trains on the parent's
-session, so nothing in the data model can tell the two apart. The passphrase is
-what makes "witness" mean anything — and it guards against a kid holding an
-unlocked device, not against someone who already has the Google account. That
-bound is why a forgotten passphrase is reset from `/account` with no old one:
-the session is already proof of ownership.
+session, so nothing in the data model can tell the two apart.
+
+The passphrase is therefore **friction and attribution, not a boundary.** Whoever
+holds the unlocked device holds the session, so they can replace the passphrase
+from `/account` and attest whatever they like — and that is accepted, because
+requiring the current one would lock a parent out permanently the first time they
+forget it, with no recovery short of deleting the account.
+
+What it buys instead: amending is a deliberate act rather than a tap, and
+`attestedAt` makes every amendment attributable after the fact. History rings an
+attested day, so a parent sees any attestation they did not make. **The posture is
+detection, not prevention.** Prevention would need a real second factor — an
+emailed reset, or re-authenticating with Google immediately before the change —
+and that is its own piece of work, not part of this epic.
 
 **The window is the current week, both directions.** `src/lib/checkInWindow.ts`
 names the fear it exists for — *"a season can be fabricated wholesale by
