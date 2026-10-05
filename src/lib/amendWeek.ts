@@ -10,6 +10,8 @@ export interface AmendDay {
   state: AmendDayState;
   /** True when a witness put this day on the record, not the player. */
   attested: boolean;
+  /** The witness's own words, if any — write-only otherwise. */
+  attestedNote: string | null;
   amendable: boolean;
 }
 
@@ -25,7 +27,12 @@ export interface AmendLaneInput {
   name: string;
   emoji: string;
   startsOn: Date | null;
-  checkIns: { date: Date; isRest: boolean; attestedAt: Date | null }[];
+  checkIns: {
+    date: Date;
+    isRest: boolean;
+    attestedAt: Date | null;
+    attestedNote?: string | null;
+  }[];
   removals: { date: Date }[];
 }
 
@@ -80,6 +87,7 @@ export function buildAmendWeek(
         date: day,
         state,
         attested: checkIn?.attestedAt != null,
+        attestedNote: checkIn?.attestedNote ?? null,
         amendable: isWithinAmendWindow(day, today, {
           laneStartsOn: lane.startsOn,
           seasonStart,

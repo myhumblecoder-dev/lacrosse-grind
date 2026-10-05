@@ -9,7 +9,7 @@ const TUESDAY = new Date('2026-09-29T00:00:00.000Z')
 const WEDNESDAY = new Date('2026-09-30T00:00:00.000Z')
 
 function day(date: Date, overrides: Partial<AmendDay> = {}): AmendDay {
-  return { date, state: 'empty', attested: false, amendable: true, ...overrides }
+  return { date, state: 'empty', attested: false, attestedNote: null, amendable: true, ...overrides }
 }
 
 function lane(overrides: Partial<AmendLaneWeek> = {}): AmendLaneWeek {

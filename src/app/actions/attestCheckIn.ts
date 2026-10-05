@@ -85,7 +85,10 @@ export async function attestCheckIn(
 
   const checkIn = await prisma.checkIn.upsert({
     where: { laneId_date: { laneId, date } },
-    update: { isRest, attestedAt, attestedNote: note ?? null },
+    // `undefined` leaves the column alone. The grid clears its note field each
+    // time a cell is opened, so writing `null` here meant a parent who changed a
+    // day twice without retyping wiped the words they wrote the first time.
+    update: { isRest, attestedAt, attestedNote: note ?? undefined },
     create: { laneId, date, isRest, attestedAt, attestedNote: note ?? null },
   });
 

@@ -38,6 +38,7 @@ function laneRow(overrides: Record<string, unknown> = {}) {
     name: 'Stick Skills',
     emoji: '🥍',
     sortOrder: 0,
+    isActive: true,
     startsOn: null,
     checkIns: [],
     removals: [],
@@ -52,7 +53,9 @@ describe('AmendPage', () => {
     vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(getTrainingDay).mockReturnValue(WEDNESDAY)
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: 'salt:hash' } as never)
-    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ seasonStart: null } as never)
+    // A live grid needs a season already running: with none, or one starting
+    // next Monday, nothing this week is scored and the page says so.
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ seasonStart: MONDAY } as never)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([laneRow()] as never)
   })
 
@@ -86,7 +89,7 @@ describe('AmendPage', () => {
     render(await Page())
 
     const arg = vi.mocked(prisma.lane.findMany).mock.calls[0][0]
-    expect(arg?.where).toEqual({ isActive: true, playerId: 'p1' })
+    expect(arg?.where).toEqual({ playerId: 'p1' })
   })
 
   it("fetches only this week's check-ins and removals", async () => {
@@ -185,5 +188,46 @@ describe('AmendPage', () => {
 
     expect(screen.queryByTestId('amend-season-pending')).not.toBeInTheDocument()
     expect(screen.getByTestId('amend-grid')).toBeInTheDocument()
+  })
+
+  it('says so when no season is running at all, rather than inviting a doomed tap', async () => {
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ seasonStart: null } as never)
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-season-pending')).toBeInTheDocument()
+    expect(screen.queryByTestId('amend-grid')).not.toBeInTheDocument()
+  })
+
+  it('names which pre-season state it is in', async () => {
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ seasonStart: null } as never)
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-season-pending')).toHaveTextContent(/No season is running/)
+  })
+
+  it('keeps a lane retired mid-week, so its days can still be withdrawn', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      laneRow({
+        isActive: false,
+        checkIns: [{ date: MONDAY, isRest: false, attestedAt: null }],
+      }),
+    ] as never)
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-row-lane-1')).toBeInTheDocument()
+  })
+
+  it('leaves out a retired lane with nothing on it this week', async () => {
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      laneRow({ isActive: false }),
+    ] as never)
+
+    render(await Page())
+
+    expect(screen.queryByTestId('amend-row-lane-1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('amend-no-lanes')).toBeInTheDocument()
   })
 })

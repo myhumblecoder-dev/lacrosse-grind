@@ -12,13 +12,22 @@ export interface RecapLaneInput {
   targetChanges?: { target: number; effectiveFrom: Date }[];
   isActive: boolean;
   sortOrder: number;
-  checkIns: { date: Date; isRest: boolean }[];
+  checkIns: { date: Date; isRest: boolean; attestedAt?: Date | null }[];
   bossBattles: { weekStarting: Date; completedAt: Date | null }[];
 }
 
 export interface RecapDay {
   date: Date;
   isRest: boolean;
+  /**
+   * True when a witness put the day on the record rather than the player.
+   *
+   * Carried through to History because that is the page the player reads. The
+   * amend grid marking an attestation is no use if the season grid paints it as
+   * an identical green square — a parent's word would pass as the player's on
+   * the only surface he looks at.
+   */
+  attested: boolean;
 }
 
 export interface RecapLaneWeek {
@@ -81,7 +90,11 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
 
       const laneWeek = weekEntry.laneData.get(lane.id)!;
       laneWeek.hits += 1;
-      laneWeek.days.push({ date: checkIn.date, isRest: checkIn.isRest });
+      laneWeek.days.push({
+        date: checkIn.date,
+        isRest: checkIn.isRest,
+        attested: checkIn.attestedAt != null,
+      });
     }
   }
 
@@ -119,7 +132,7 @@ export function buildWeekRecaps(lanes: RecapLaneInput[]): WeekRecap[] {
             // Pushed to `days` but NOT counted in `hits`: the target measures
             // training days, and the victory is not one of them.
             if (withinWeek && !alreadyADay) {
-              laneWeek.days.push({ date: fellOn, isRest: false });
+              laneWeek.days.push({ date: fellOn, isRest: false, attested: false });
             }
           }
         }

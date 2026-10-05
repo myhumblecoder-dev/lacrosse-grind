@@ -54,6 +54,10 @@ const ERROR_COPY: Record<string, string> = {
   // guessing at one of them and being wrong.
   validation: "Check the passphrase and the note, then try again.",
   "already-marked": "That day already says this. Nothing to change.",
+  // The genuinely racy refusal: without its own line it read as "give it another
+  // go", inviting a retry of something already done.
+  "not-found": "That day has already changed — reload to see where it stands.",
+  withdrawn: "That day was taken off the record. Put it back with He showed up.",
   "write-failed": "That didn't save — try again in a moment.",
 }
 
@@ -132,7 +136,9 @@ export default function AmendWeekGrid({
           type="password"
           value={passphrase}
           onChange={(e) => setPassphrase(e.target.value)}
-          autoComplete="current-password"
+          // Not `current-password`: with no username field a manager offers the
+          // Google account password, which is not what this is.
+          autoComplete="off"
           className="w-full max-w-xs rounded-lg border border-zinc-700 bg-zinc-900 p-2"
         />
       </div>
@@ -204,6 +210,12 @@ export default function AmendWeekGrid({
                 <p className="text-sm text-zinc-300">
                   {weekdayLabel(day.date)} {dayId(day.date)} — what happened?
                 </p>
+
+                {day.attestedNote && (
+                  <p data-testid="amend-existing-note" className="text-sm text-amber-200/80">
+                    Noted last time: {day.attestedNote}
+                  </p>
+                )}
 
                 <input
                   data-testid="amend-note"

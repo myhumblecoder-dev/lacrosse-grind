@@ -457,4 +457,42 @@ describe('Page', () => {
 
     expect(prisma.user.findUnique).not.toHaveBeenCalled()
   })
+
+  it('rings a day a witness put on the record, so it does not read as the player\'s own', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false, attestedAt: new Date() }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    const { container } = render(await Page())
+
+    const marked = container.querySelector('[data-attested="true"]')
+    expect(marked).not.toBeNull()
+    expect(marked?.getAttribute('title')).toContain('witness')
+  })
+
+  it('leaves a day the player tapped unringed', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false, attestedAt: null }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    const { container } = render(await Page())
+
+    expect(container.querySelector('[data-attested="true"]')).toBeNull()
+  })
 })

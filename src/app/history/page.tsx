@@ -139,16 +139,21 @@ export default async function HistoryPage() {
                       // Rest still wins: a rest day reads blue even if the boss
                       // happened to fall on it, which is the rule this page
                       // already held to.
+                      // An attested day gets a ring. The square still says what
+                      // happened; the ring says who put it there, so a parent's
+                      // word never reads as the player's own tap.
                       className={`h-6 w-6 rounded ${
                         d.isRest
                           ? "bg-blue-300"
                           : beatTheBoss
                             ? "bg-purple-500"
                             : "bg-green-400"
-                      }`}
+                      } ${d.attested ? "ring-2 ring-amber-300 ring-offset-1 ring-offset-zinc-950" : ""}`}
+                      data-attested={d.attested ? "true" : undefined}
                       title={
                         d.date.toISOString().slice(0, 10) +
-                        (d.isRest ? " — rest day" : beatTheBoss ? " — boss defeated" : "")
+                        (d.isRest ? " — rest day" : beatTheBoss ? " — boss defeated" : "") +
+                        (d.attested ? " — on the record by a witness" : "")
                       }
                     />
                   )

@@ -42,8 +42,13 @@ export default async function AmendPage() {
 
   const [prize, lanes] = await Promise.all([
     prisma.prize.findUnique({ where: { playerId } }),
+    // Not `isActive: true`. A lane retired on Wednesday still has Monday and
+    // Tuesday on the record — they render on History and still count toward the
+    // week — so a parent needs a cell to withdraw them from. Retired lanes with
+    // nothing on them this week are filtered out below rather than in the query,
+    // which would also have dropped the ones that do.
     prisma.lane.findMany({
-      where: { isActive: true, playerId },
+      where: { playerId },
       orderBy: { sortOrder: "asc" },
       include: {
         checkIns: { where: { date: { gte: weekStart } } },
@@ -52,16 +57,27 @@ export default async function AmendPage() {
     }),
   ])
 
-  // A lane that has not reached its first week has nothing to amend.
-  const liveLanes = lanes.filter((l) => !isLanePending(l.startsOn, weekStart))
+  // A lane that has not reached its first week has nothing to amend; a retired
+  // one only earns a row if it has something on it this week.
+  const liveLanes = lanes.filter(
+    (l) =>
+      !isLanePending(l.startsOn, weekStart) &&
+      (l.isActive || l.checkIns.length > 0 || l.removals.length > 0)
+  )
   const seasonStart = prize?.seasonStart ?? null
   const rows = buildAmendWeek(liveLanes, today, seasonStart)
 
+  // Nothing here is being scored yet, so there is nothing to put straight.
+  //
+  // Two ways to be in that state, and the first version of this only caught one.
   // `resolveSeasonStart` returns the Monday ON OR AFTER the press, so starting a
-  // season on a Tuesday dates it to next Monday. For the rest of that week the
-  // seasonStart floor rejects every day, which left a grid of disabled cells
-  // under copy inviting a parent to tap one. Say what is happening instead.
-  const seasonPending = seasonStart !== null && seasonStart.getTime() > today.getTime()
+  // season on a Tuesday dates it to next Monday and the seasonStart floor then
+  // rejects every day of that week. The other is no season at all: there the
+  // floor is skipped entirely and the grid came up fully live, inviting
+  // attestations that History's `date >= seasonStart` filter would hide the
+  // moment a season began — days put on the record and then silently gone.
+  const seasonPending =
+    seasonStart === null || seasonStart.getTime() > today.getTime()
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-6">
@@ -75,8 +91,9 @@ export default async function AmendPage() {
 
       {seasonPending ? (
         <p data-testid="amend-season-pending" className="text-zinc-500">
-          The season starts on Monday, so this week is not being counted yet —
-          there is nothing here to put straight. Come back once it is running.
+          {seasonStart === null
+            ? "No season is running yet, so nothing this week is being counted — there is nothing here to put straight. Start a season from Today first."
+            : "The season starts on Monday, so this week is not being counted yet — there is nothing here to put straight. Come back once it is running."}
         </p>
       ) : rows.length === 0 ? (
         <p data-testid="amend-no-lanes" className="text-zinc-500">
