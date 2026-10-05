@@ -13,6 +13,9 @@ vi.mock('@/lib/db', () => ({
     prize: {
       findUnique: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
@@ -28,26 +31,39 @@ describe('Page', () => {
     const { prisma } = await import('@/lib/db')
     vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: 'salt:hash' } as never)
     vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
   })
 
-  it('the history queries are scoped to the signed-in user', async () => {
+  it('the history queries are scoped to the active player, not the account', async () => {
     const { prisma } = await import('@/lib/db')
-    const userId = 'u1'
-    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId, playerId: 'p1' })
-    
-    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'prize', userId } as any)
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue({ id: 'prize', playerId: 'p1' } as any)
     vi.mocked(prisma.lane.findMany).mockResolvedValue([])
 
     await Page()
 
     expect(getViewer).toHaveBeenCalled()
     expect(prisma.prize.findUnique).toHaveBeenCalledWith({
-      where: { userId }
+      where: { playerId: 'p1' }
     })
     expect(prisma.lane.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ userId })
+      where: expect.objectContaining({ playerId: 'p1' })
     }))
+  })
+
+  it('does not query by userId — a second kid on the account must not appear', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    await Page()
+
+    const laneArg = vi.mocked(prisma.lane.findMany).mock.calls[0][0]
+    expect(laneArg?.where).not.toHaveProperty('userId')
+    const prizeArg = vi.mocked(prisma.prize.findUnique).mock.calls[0][0]
+    expect(prizeArg.where).not.toHaveProperty('userId')
   })
 
   it('a retired lane with history renders muted with the tag', async () => {
@@ -328,6 +344,155 @@ describe('Page', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: `Week of ${formatWeekLabel(getWeekStart(pastDay))}` })
     ).toBeInTheDocument()
-    expect(screen.queryByText(/This week —/)).not.toBeInTheDocument()
+    // The past week is not relabelled as the current one. A signed-in parent
+    // does now get a separate empty "This week" section carrying the amend
+    // door (epic 8), so the check is that the two are distinct headings rather
+    // than that the current week is absent.
+    expect(
+      screen.queryByRole('heading', {
+        level: 2,
+        name: `This week — ${formatWeekLabel(getWeekStart(pastDay))}`,
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  it('offers the amend door in the current week section for a signed-in viewer', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-link')).toHaveAttribute('href', '/amend')
+  })
+
+  it('never offers the amend door to a demo visitor', async () => {
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'demo' })
+
+    render(await Page())
+
+    expect(screen.queryByTestId('amend-link')).not.toBeInTheDocument()
+  })
+
+  it('still offers the door when the current week has nothing on the record', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    render(await Page())
+
+    expect(screen.getByTestId('amend-link')).toBeInTheDocument()
+    expect(screen.getByText(/Nothing on the record yet this week/)).toBeInTheDocument()
+  })
+
+  it('does not render two current-week sections when the week has check-ins', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    render(await Page())
+
+    expect(screen.getAllByTestId('amend-link')).toHaveLength(1)
+    expect(screen.queryByText(/Nothing on the record yet this week/)).not.toBeInTheDocument()
+  })
+
+  it('the amend door offers setup, not amending, when no passphrase exists', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: null } as never)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    render(await Page())
+
+    const link = screen.getByTestId('amend-link')
+    expect(link).toHaveAttribute('href', '/account')
+    expect(link).toHaveTextContent('Set up amend')
+  })
+
+  it('the amend door goes straight to amending once a passphrase exists', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: 'salt:hash' } as never)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    render(await Page())
+
+    const link = screen.getByTestId('amend-link')
+    expect(link).toHaveAttribute('href', '/amend')
+    expect(link).toHaveTextContent('Amend')
+  })
+
+  it('never renders the stored hash', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ witnessHash: 'salt:secrethash' } as never)
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([])
+
+    const { container } = render(await Page())
+
+    expect(container.innerHTML).not.toContain('secrethash')
+  })
+
+  it('does not look up a passphrase for a demo visitor', async () => {
+    const { prisma } = await import('@/lib/db')
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'demo' })
+
+    render(await Page())
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('rings a day a witness put on the record, so it does not read as the player\'s own', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false, attestedAt: new Date() }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    const { container } = render(await Page())
+
+    const marked = container.querySelector('[data-attested="true"]')
+    expect(marked).not.toBeNull()
+    expect(marked?.getAttribute('title')).toContain('witness')
+  })
+
+  it('leaves a day the player tapped unringed', async () => {
+    const { prisma } = await import('@/lib/db')
+    const today = getTrainingDay(new Date())
+    vi.mocked(getViewer).mockResolvedValue({ kind: 'user', userId: 'u1', playerId: 'p1' })
+    vi.mocked(prisma.lane.findMany).mockResolvedValue([
+      {
+        id: '1', name: 'Stick Skills', emoji: '🥍', targetPerWeek: 3, isActive: true,
+        sortOrder: 0, startsOn: null, createdAt: new Date(0),
+        checkIns: [{ date: today, isRest: false, attestedAt: null }],
+        bossBattles: [], targetChanges: [],
+      },
+    ] as any)
+
+    const { container } = render(await Page())
+
+    expect(container.querySelector('[data-attested="true"]')).toBeNull()
   })
 })

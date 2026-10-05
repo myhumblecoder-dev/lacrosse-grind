@@ -6,7 +6,11 @@ import { NextResponse } from "next/server"
 // job here: a SIGNED-IN user with no active player picked yet lands on the
 // chooser (epic 7 Netflix flow) instead of a page silently falling back to the
 // oldest player.
-const GATED_PATHS = ["/", "/lanes", "/prize", "/boss-battles", "/history"]
+// Every authed route belongs here. A new route is ungated by default, and an
+// ungated /amend would let requirePlayerId fall back to the oldest player —
+// i.e. amend the wrong kid's week, which is the worst version of the silent
+// fallback this gate exists to prevent.
+const GATED_PATHS = ["/", "/lanes", "/prize", "/boss-battles", "/history", "/amend"]
 
 export default auth((request) => {
   const { pathname } = request.nextUrl

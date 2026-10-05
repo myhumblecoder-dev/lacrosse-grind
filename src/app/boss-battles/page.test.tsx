@@ -225,9 +225,9 @@ describe('Page', () => {
       isActive: true,
       sortOrder: 1,
       checkIns: [
-        { date: new Date(), laneId: 'l1', isRest: false },
-        { date: new Date(), laneId: 'l1', isRest: false },
-        { date: new Date(), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
       ],
       bossBattles: [],
     } as any
@@ -251,11 +251,11 @@ describe('Page', () => {
       isActive: true,
       sortOrder: 1,
       checkIns: [
-        { date: new Date(), laneId: 'l1', isRest: false },
-        { date: new Date(), laneId: 'l1', isRest: false },
-        { date: new Date(), laneId: 'l1', isRest: false },
-        { date: new Date(), laneId: 'l1', isRest: false },
-        { date: new Date(), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
+        { date: getTrainingDay(new Date()), laneId: 'l1', isRest: false },
       ],
       bossBattles: [],
     } as any

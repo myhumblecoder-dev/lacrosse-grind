@@ -5,6 +5,12 @@ const DAY = 24 * 60 * 60 * 1000;
 export interface DemoCheckIn {
   date: Date;
   isRest: boolean;
+  /**
+   * Always absent in the demo: every demo day is the player's own. Declared so
+   * the demo and database shapes stay interchangeable for the dashboard, which
+   * reads it to decide whether Undo is the right control.
+   */
+  attestedAt?: Date | null;
 }
 
 export interface DemoLane {

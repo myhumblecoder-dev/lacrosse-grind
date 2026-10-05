@@ -25,26 +25,31 @@
 
 Source of truth for all persistence.
 
-**Schema changes reach production via the build, not by hand.** This repo is
+**Schema changes reach production through CD, not the build.** This repo is
 schema-first — there is no `prisma/migrations/`, so the schema file *is* the
-migration. `package.json` therefore defines a `vercel-build` script that runs
-`prisma db push` before `next build`; Vercel prefers `vercel-build` over
-`build` when present, so every production deploy syncs the database to the
-schema using the `DATABASE_URL` Vercel injects. Two consequences worth knowing:
+migration. The sync lives in `.github/workflows/cd.yml`, which on every push to
+`main` runs `prisma db push --accept-data-loss` against the real production
+`DATABASE_URL` **before** `vercel build` and `vercel deploy`, so code and
+database always move together. Three consequences worth knowing:
 
-- **CI still runs plain `build`**, which has no `db push`. That is deliberate:
-  CI sets a placeholder `DATABASE_URL` pointing at a database that does not
-  exist, and a push there would fail every PR.
-- **`db push` refuses any change that would lose data.** Additive changes (a
-  new model, a new nullable column) apply silently; a rename or a dropped
-  column fails the build instead of destroying rows. Never add
-  `--accept-data-loss` to that script — it converts a blocked deploy into
-  silent data loss.
+- **`vercel-build` must never push.** It once did (`prisma generate && prisma db
+  push && next build`) and was reverted in `c619163`: a build must not mutate a
+  database, CI only has a placeholder `DATABASE_URL` so the push failed with
+  P1001, and on Vercel previews it risked pushing a branch's schema at the
+  shared database. Vercel's own auto-deploy for `main` is disabled in
+  `vercel.json` for the same reason — code must not go live ahead of the sync.
+- **CI runs plain `build`**, which has no push, against a placeholder
+  `DATABASE_URL`.
+- **`--accept-data-loss` is on in CD deliberately.** `db push` refuses any diff
+  its heuristic flags, including provably safe ones (a unique index on a
+  just-added all-NULL column, epic 6). Destructive schema changes are gated
+  upstream instead, by two reviewed merges — the story PR into `develop` and the
+  release PR into `main`.
 
-Nobody needs the production connection string to ship a schema change. Vercel
-marks every Postgres variable *sensitive*, so `vercel env pull` returns
-`[SENSITIVE]` rather than the value and a local `prisma db push` against prod
-is not possible without fetching the string out of the Neon console by hand.
+A schema change therefore needs no manual push and nobody needs the production
+connection string: it lands when the release PR merges to `main`. Vercel marks
+every Postgres variable *sensitive*, so `vercel env pull` returns `[SENSITIVE]`
+rather than the value, and CD falls back to the `DATABASE_URL` repo secret.
 
 ```prisma
 // Lane — a skill domain Eddie trains (e.g. "Stick Skills", "Shooting", "Conditioning")
@@ -58,6 +63,7 @@ model Lane {
   createdAt     DateTime @default(now())
 
   checkIns      CheckIn[]
+  removals      CheckInRemoval[]  // epic 8
   bossBattles   BossBattle[]
 
   @@index([isActive])
@@ -71,10 +77,31 @@ model CheckIn {
   date        DateTime // UTC midnight of the check-in day
   isRest      Boolean  @default(false)  // true = rest/sleep entry (counts as a hit)
   note        String?  // optional free-text (effort note, not a grade)
+  // Epic 8: set when a witness (a parent) put this day on the record rather
+  // than the player tapping it. NULL = the player's own check-in.
+  attestedAt   DateTime?
+  attestedNote String?  // the witness's words; `note` stays the player's
   createdAt   DateTime @default(now())
 
   @@unique([laneId, date])
   @@index([date])
+  @@index([laneId, date])
+}
+
+// CheckInRemoval — epic 8: the log of days taken back off the record.
+// A withdrawal DELETES the CheckIn row and writes one of these. A `withdrawnAt`
+// flag would need filtering by every reader (dashboard, History, weekRecap,
+// streak, qualifyingWeek, demoSeason, boss battles, prize) and one missed
+// filter would silently score a withdrawn day. Append-only, so no unique index.
+model CheckInRemoval {
+  id        String   @id @default(cuid())
+  laneId    String
+  lane      Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
+  date      DateTime // UTC midnight of the day withdrawn
+  wasRest   Boolean  @default(false)
+  note      String?
+  createdAt DateTime @default(now())
+
   @@index([laneId, date])
 }
 
@@ -133,6 +160,14 @@ model Player {
 }
 ```
 
+The Auth.js models (`User`, `Account`, `Session`, `VerificationToken`) are not
+mirrored above — they are the adapter's, unchanged except for one app column:
+`User.witnessHash String?`, the scrypt `"salt:hash"` of the witness passphrase
+that unlocks `/amend` (epic 8). NULL means never set. It is not a second
+account: whoever holds the Google sign-in can replace it from `/account`,
+because the session is already proof of ownership. It exists to stop a kid on
+an unlocked device, nothing more.
+
 Multi-player (epic 6): `Lane` and `Prize` each gain a nullable `playerId
 String?` column (additive — `db push` applies without data loss); the
 `ensureDefaultPlayer` action binds orphan rows to the account's default
@@ -157,7 +192,7 @@ No `User` model — single-user MVP.
 | `src/app/actions/createLane.ts` (+ `.test.ts`) | action | Create a Lane; validates with `laneSchema` |
 | `src/app/actions/updateLane.ts` (+ `.test.ts`) | action | Toggle active/sort/name/emoji/frequency |
 | `src/app/actions/createCheckIn.ts` (+ `.test.ts`) | action | Record a daily check-in (or rest entry) |
-| `src/app/actions/deleteCheckIn.ts` (+ `.test.ts`) | action | Remove today's check-in (undo) |
+| `src/app/actions/deleteCheckIn.ts` (+ `.test.ts`) | action | Remove today's check-in (undo) — player-scoped and bounded to the check-in window; an earlier day goes through `withdrawCheckIn` |
 | `src/app/actions/createBossBattle.ts` (+ `.test.ts`) | action | Submit boss battle self-report → calls `generate()` for coach note |
 | `src/app/actions/createReflection.ts` (+ `.test.ts`) | action | Submit weekly reflection → calls `generate()` for coach summary |
 | `src/app/actions/awardFreeze.ts` (+ `.test.ts`) | action | Award a streak freeze token to a lane |
@@ -167,6 +202,17 @@ No `User` model — single-user MVP.
 | `src/app/actions/switchPlayer.ts` (+ `.test.ts`) | action | Epic 6: set the active-player cookie |
 | `src/components/PlayerSwitcher.tsx` (+ `.test.tsx`) | component | Epic 6: active-player switcher UI |
 | `src/lib/repairableGap.ts` (+ `.test.ts`) | lib | `findRepairableGap(checkIns, today, frozenDates?)` — the missed day worth a token, or null |
+| `src/lib/checkInAuthorship.ts` (+ `.test.ts`) | lib | Epic 8: `mayRecord`/`mayRemove` — who owns a `CheckIn` row and may this actor change it. The ONE place the attestation rule lives; all four check-in actions call it rather than re-deriving it |
+| `src/lib/witnessPassphrase.ts` (+ `.test.ts`) | lib | Epic 8: `hashWitnessPassphrase`/`verifyWitnessPassphrase` over `node:crypto` scrypt. Holds NO constants — `MIN_WITNESS_PASSPHRASE_LENGTH` lives in `validation.ts` so nothing client-reachable ever imports this |
+| `src/lib/amendWindow.ts` (+ `.test.ts`) | lib | Epic 8: `isWithinAmendWindow(date, today, floors?)` — the current running week, floored by lane `startsOn` and `seasonStart` |
+| `src/lib/amendWeek.ts` (+ `.test.ts`) | lib | Epic 8: `buildAmendWeek(lanes, today, seasonStart)` — Monday→today cells per lane, including the empty ones `buildWeekRecaps` omits |
+| `src/app/actions/setWitnessPassphrase.ts` (+ `.test.ts`) | action | Epic 8: set/replace the witness passphrase (Google session is the only gate) |
+| `src/app/actions/attestCheckIn.ts` (+ `.test.ts`) | action | Epic 8: put a past day of the current week on the record; refunds a freeze spent on that day |
+| `src/app/actions/withdrawCheckIn.ts` (+ `.test.ts`) | action | Epic 8: take a day off the record — deletes the CheckIn and logs a CheckInRemoval in one transaction |
+| `src/components/WitnessPassphrasePanel.tsx` (+ `.test.tsx`) | client | Epic 8: set/replace the passphrase on `/account` |
+| `src/components/AmendWeekGrid.tsx` (+ `.test.tsx`) | client | Epic 8: the Monday→today grid; passphrase held for the visit and sent with every write |
+| `src/app/amend/page.tsx` (+ `.test.tsx`) | route | Epic 8: the amend surface — session-gated, redirects to `/account` with no passphrase |
+| `src/proxy.ts` (+ `.test.ts`) | route | Next 16's renamed middleware: a signed-in user with no active player is sent to `/choose-player`. `GATED_PATHS` must list every new authed route |
 | `src/app/page.tsx` | route | Daily dashboard — today's checklist across all active lanes |
 | `src/app/layout.tsx` | route | Root layout — nav shell (modify scaffold version) |
 | `src/app/lanes/page.tsx` | route | Lane management — list, add, toggle active, reorder |
@@ -224,6 +270,22 @@ BossBattleForm ("use client")
 ReflectionForm ("use client")
   ──createReflection(weekStarting, playerNote)──▶ actions/createReflection.ts
      ──Zod validate──▶ generate(summaryPrompt) ──▶ prisma.weeklyReflection.upsert
+
+history/page.tsx (server, force-dynamic)
+  ──renders──▶ Link to /amend, in the current week's section
+
+amend/page.tsx (server, force-dynamic)
+  ──auth() ──▶ /signin, or witnessHash null ──▶ /account
+  ──prisma.lane.findMany (this week's checkIns + removals)──▶ buildAmendWeek
+  ──renders──▶ AmendWeekGrid
+
+AmendWeekGrid ("use client")
+  ──attestCheckIn({laneId, date, isRest, passphrase})──▶ actions/attestCheckIn.ts
+     ──Zod validate ──▶ verifyWitnessPassphrase ──▶ isWithinAmendWindow
+     ──prisma.checkIn.upsert (attestedAt) ──▶ streakFreeze refund
+     ──revalidatePath('/', '/amend', '/history')
+  ──withdrawCheckIn({laneId, date, passphrase})──▶ actions/withdrawCheckIn.ts
+     ──same gates ──▶ $transaction[checkIn.delete, checkInRemoval.create]
 ```
 
 ---
