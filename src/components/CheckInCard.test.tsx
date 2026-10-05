@@ -64,4 +64,30 @@ describe('CheckInCard', () => {
     expect(screen.queryByRole('button', { name: 'I showed up' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Rest day' })).toBeNull()
   })
-}) 
+
+  it('an attested day offers no bare Undo — deleteCheckIn refuses one', () => {
+    render(<CheckInCard {...defaultProps} checkedIn isAttested />)
+
+    expect(screen.queryByText('Undo')).not.toBeInTheDocument()
+    expect(screen.getByTestId('attested-note')).toBeInTheDocument()
+  })
+
+  it('an attested day points at the amend page', () => {
+    render(<CheckInCard {...defaultProps} checkedIn isAttested />)
+
+    expect(screen.getByRole('link', { name: /amend page/ })).toHaveAttribute('href', '/amend')
+  })
+
+  it('an attested day is badged as witnessed', () => {
+    render(<CheckInCard {...defaultProps} checkedIn isAttested />)
+
+    expect(screen.getByTestId('attested-badge')).toBeInTheDocument()
+  })
+
+  it("a day the player tapped keeps its Undo", () => {
+    render(<CheckInCard {...defaultProps} checkedIn />)
+
+    expect(screen.getByText('Undo')).toBeInTheDocument()
+    expect(screen.queryByTestId('attested-badge')).not.toBeInTheDocument()
+  })
+})

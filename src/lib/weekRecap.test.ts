@@ -192,3 +192,50 @@ describe('buildWeekRecaps — the boss gets its own square', () => {
     expect(week.lanes[0].battleDay).toBeNull()
   })
 })
+
+describe('buildWeekRecaps — authorship', () => {
+  const MONDAY = new Date('2026-09-28T00:00:00.000Z')
+  const TUESDAY = new Date('2026-09-29T00:00:00.000Z')
+
+  const lane = (checkIns: { date: Date; isRest: boolean; attestedAt?: Date | null }[]) => ({
+    id: 'l1',
+    name: 'Stick Skills',
+    emoji: '\u{1F94D}',
+    targetPerWeek: 5,
+    isActive: true,
+    sortOrder: 0,
+    checkIns,
+    bossBattles: [],
+  })
+
+  it('marks a day a witness put on the record', () => {
+    const [week] = buildWeekRecaps([
+      lane([{ date: MONDAY, isRest: false, attestedAt: new Date('2026-09-30T12:00:00.000Z') }]),
+    ])
+
+    expect(week.lanes[0].days[0].attested).toBe(true)
+  })
+
+  it("leaves the player's own day unmarked", () => {
+    const [week] = buildWeekRecaps([lane([{ date: MONDAY, isRest: false, attestedAt: null }])])
+
+    expect(week.lanes[0].days[0].attested).toBe(false)
+  })
+
+  it('treats a missing attestedAt as the player\'s own, for the demo season', () => {
+    const [week] = buildWeekRecaps([lane([{ date: MONDAY, isRest: false }])])
+
+    expect(week.lanes[0].days[0].attested).toBe(false)
+  })
+
+  it('distinguishes the two within one week', () => {
+    const [week] = buildWeekRecaps([
+      lane([
+        { date: MONDAY, isRest: false, attestedAt: null },
+        { date: TUESDAY, isRest: false, attestedAt: new Date('2026-09-30T12:00:00.000Z') },
+      ]),
+    ])
+
+    expect(week.lanes[0].days.map((d) => d.attested)).toEqual([false, true])
+  })
+})

@@ -33,6 +33,7 @@ model Lane {
   createdAt     DateTime  @default(now())
 
   checkIns      CheckIn[]
+  removals      CheckInRemoval[]
   bossBattles   BossBattle[]
   streakFreezes StreakFreeze[]
   targetChanges LaneTarget[]
@@ -61,16 +62,45 @@ model LaneTarget {
 
 // CheckIn — Eddie's daily self-report for a lane session
 model CheckIn {
-  id        String   @id @default(cuid())
-  laneId    String
-  lane      Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
-  date      DateTime // UTC midnight of the check-in day
-  isRest    Boolean  @default(false) // true = rest/sleep entry (counts as a hit)
-  note      String? // optional free-text (effort note, not a grade)
-  createdAt DateTime @default(now())
+  id           String    @id @default(cuid())
+  laneId       String
+  lane         Lane      @relation(fields: [laneId], references: [id], onDelete: Cascade)
+  date         DateTime // UTC midnight of the check-in day
+  isRest       Boolean   @default(false) // true = rest/sleep entry (counts as a hit)
+  note         String? // optional free-text (effort note, not a grade)
+  // Set when a witness (a parent) put this day on the record rather than the
+  // player tapping it — a day attested on Saturday for Tuesday is a different
+  // fact from one tapped on Tuesday, and the app does not launder the two.
+  // NULL = the player's own check-in.
+  attestedAt   DateTime?
+  attestedNote String? // the witness's words; `note` stays the player's
+  createdAt    DateTime  @default(now())
 
   @@unique([laneId, date])
   @@index([date])
+  @@index([laneId, date])
+}
+
+// CheckInRemoval — the log of days taken back off the record.
+//
+// A withdrawal DELETES the CheckIn row and writes one of these rather than
+// soft-deleting in place. A `withdrawnAt` flag would have to be filtered out by
+// every reader — the dashboard, History, weekRecap, streak, qualifyingWeek, the
+// demo season, boss battles, the prize grid — and one missed filter would
+// silently score a day that was withdrawn. Deleting keeps @@unique([laneId,
+// date]) meaningful and needs no reader changes.
+//
+// Append-only, so no unique constraint: a day marked, withdrawn, re-attested and
+// withdrawn again writes two rows, and that sequence is the record.
+model CheckInRemoval {
+  id        String   @id @default(cuid())
+  laneId    String
+  lane      Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
+  date      DateTime // UTC midnight of the day withdrawn
+  wasRest   Boolean  @default(false) // what the deleted row said, so the log can be read back
+  note      String? // the witness's words, if any
+  createdAt DateTime @default(now())
+
   @@index([laneId, date])
 }
 
@@ -168,6 +198,12 @@ model User {
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // scrypt "salt:hash" of the witness passphrase that unlocks /amend. NULL =
+  // never set. Not a second account: whoever holds the Google sign-in can
+  // replace it from /account, because the session is already proof of
+  // ownership. It exists to stop a kid on an unlocked device, nothing more.
+  witnessHash String?
 
   accounts Account[]
   sessions Session[]

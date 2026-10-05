@@ -43,4 +43,20 @@ describe('proxy player gate', () => {
     const res = call(makeRequest('/choose-player', { signedIn: true }))
     expect(res?.headers.get('location') ?? '').not.toContain('/choose-player')
   })
+
+  it('redirects a signed-in user with no active-player cookie from /amend', () => {
+    const res = call(makeRequest('/amend', { signedIn: true }))
+    expect(res?.status).toBeGreaterThanOrEqual(300)
+    expect(res?.headers.get('location')).toContain('/choose-player')
+  })
+
+  it('passes /amend when the active-player cookie is set', () => {
+    const res = call(makeRequest('/amend', { signedIn: true, cookie: 'p1' }))
+    expect(res?.headers.get('location') ?? '').not.toContain('/choose-player')
+  })
+
+  it('never gates a signed-out request to /amend — the page sends it to /signin', () => {
+    const res = call(makeRequest('/amend', { signedIn: false }))
+    expect(res?.headers.get('location') ?? '').not.toContain('/choose-player')
+  })
 })

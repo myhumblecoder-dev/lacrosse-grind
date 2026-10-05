@@ -4,7 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { createCheckIn } from './createCheckIn'
 
-vi.mock('@/lib/db', () => ({ prisma: { checkIn: { upsert: vi.fn() }, lane: { findFirst: vi.fn() } } }))
+vi.mock('@/lib/db', () => ({ prisma: {
+  checkIn: { upsert: vi.fn(), findUnique: vi.fn() },
+  checkInRemoval: { findFirst: vi.fn() },
+  lane: { findFirst: vi.fn() },
+} }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/tenancy', () => ({ requireUserId: vi.fn(), requirePlayerId: vi.fn() }))
 
@@ -23,6 +27,8 @@ describe('createCheckIn', () => {
     pinClock()
     vi.mocked(requireUserId).mockResolvedValue('u1')
     vi.mocked(requirePlayerId).mockResolvedValue('p1')
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.checkInRemoval.findFirst).mockResolvedValue(null)
   })
 
   afterEach(() => vi.useRealTimers())
@@ -133,5 +139,64 @@ describe('createCheckIn — the date is not the caller\'s to choose freely', () 
     vi.mocked(prisma.lane.findFirst).mockResolvedValue(null as never)
     const out = await createCheckIn({ laneId: 'l-foreign', date: '2026-08-27' })
     expect(out.ok).toBe(false)
+  })
+
+  it('refuses to rewrite a day a witness put on the record', async () => {
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'lane-1' } as never)
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue({
+      attestedAt: new Date('2026-01-05T12:00:00.000Z'),
+    } as never)
+
+    const result = await createCheckIn({ laneId: 'lane-1', date, isRest: false })
+
+    expect(result).toEqual({ ok: false, error: 'attested' })
+    expect(prisma.checkIn.upsert).not.toHaveBeenCalled()
+  })
+
+  it("still writes a day the player owns", async () => {
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'lane-1' } as never)
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue({ attestedAt: null } as never)
+    vi.mocked(prisma.checkIn.upsert).mockResolvedValue({ id: 'ci-1' } as never)
+
+    const result = await createCheckIn({ laneId: 'lane-1', date, isRest: false })
+
+    expect(result).toEqual({ ok: true, id: 'ci-1' })
+  })
+
+  it('pins a mid-afternoon date to UTC midnight so it cannot double-count the day', async () => {
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'lane-1' } as never)
+    vi.mocked(prisma.checkIn.upsert).mockResolvedValue({ id: 'ci-1' } as never)
+
+    await createCheckIn({
+      laneId: 'lane-1',
+      date: new Date('2026-01-05T18:45:00.000Z'),
+      isRest: false,
+    })
+
+    const arg = vi.mocked(prisma.checkIn.upsert).mock.calls[0][0]
+    expect(arg.where).toEqual({
+      laneId_date: { laneId: 'lane-1', date: new Date(Date.UTC(2026, 0, 5)) },
+    })
+  })
+
+  it('refuses a day a witness took off the record', async () => {
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'lane-1' } as never)
+    vi.mocked(prisma.checkIn.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.checkInRemoval.findFirst).mockResolvedValue({ id: 'rm-1' } as never)
+
+    const result = await createCheckIn({ laneId: 'lane-1', date, isRest: false })
+
+    expect(result).toEqual({ ok: false, error: 'withdrawn' })
+    expect(prisma.checkIn.upsert).not.toHaveBeenCalled()
+  })
+
+  it('looks for the withdrawal on the same lane and day', async () => {
+    vi.mocked(prisma.lane.findFirst).mockResolvedValue({ id: 'lane-1' } as never)
+    vi.mocked(prisma.checkIn.upsert).mockResolvedValue({ id: 'ci-1' } as never)
+
+    await createCheckIn({ laneId: 'lane-1', date, isRest: false })
+
+    expect(prisma.checkInRemoval.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { laneId: 'lane-1', date } }))
   })
 })
