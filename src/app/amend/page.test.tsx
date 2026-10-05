@@ -230,4 +230,10 @@ describe('AmendPage', () => {
     expect(screen.queryByTestId('amend-row-lane-1')).not.toBeInTheDocument()
     expect(screen.getByTestId('amend-no-lanes')).toBeInTheDocument()
   })
+
+  it('always offers a route to change the passphrase', async () => {
+    render(await Page())
+
+    expect(screen.getByTestId('amend-change-passphrase')).toHaveAttribute('href', '/account')
+  })
 })

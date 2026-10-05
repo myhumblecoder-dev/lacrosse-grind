@@ -114,13 +114,22 @@ export default async function AmendPage() {
         />
       )}
 
-      <Link
-        href="/history"
-        data-testid="amend-back"
-        className="inline-block text-sm text-zinc-400 hover:text-zinc-200"
-      >
-        ← Back to history
-      </Link>
+      <div className="flex flex-wrap items-center gap-4">
+        <Link
+          href="/history"
+          data-testid="amend-back"
+          className="inline-block text-sm text-zinc-400 hover:text-zinc-200"
+        >
+          ← Back to history
+        </Link>
+        <Link
+          href="/account"
+          data-testid="amend-change-passphrase"
+          className="inline-block text-sm text-zinc-500 hover:text-zinc-300"
+        >
+          Forgotten or changing your passphrase?
+        </Link>
+      </div>
     </main>
   )
 }
