@@ -148,4 +148,18 @@ describe('WitnessPassphrasePanel', () => {
     expect(screen.getByTestId('witness-passphrase-input')).toHaveAttribute('type', 'password')
     expect(screen.getByTestId('witness-passphrase-confirm')).toHaveAttribute('type', 'password')
   })
+
+  it('tells a parent who already set one that forgetting it is survivable', () => {
+    render(<WitnessPassphrasePanel {...props()} isSet />)
+
+    expect(screen.getByTestId('witness-passphrase-forgot')).toHaveTextContent(
+      /do not need\s+the old one/
+    )
+  })
+
+  it('says nothing about forgetting before one has been set', () => {
+    render(<WitnessPassphrasePanel {...props()} isSet={false} />)
+
+    expect(screen.queryByTestId('witness-passphrase-forgot')).not.toBeInTheDocument()
+  })
 })

@@ -434,4 +434,69 @@ describe('AmendWeekGrid', () => {
 
     expect(screen.getByTestId('amend-error')).toHaveTextContent(/already says this/)
   })
+
+  it('offers a way out when the passphrase does not match', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'bad-passphrase' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'misremembered')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    const recovery = screen.getByTestId('amend-passphrase-recovery')
+    expect(recovery).toHaveAttribute('href', '/account')
+  })
+
+  it('says the old passphrase is not needed to replace it', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'bad-passphrase' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'misremembered')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-grid')).toHaveTextContent(/not need the old one/)
+  })
+
+  it('offers the way out when no passphrase is set at all', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'no-passphrase' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'anything')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-passphrase-recovery')).toBeInTheDocument()
+  })
+
+  it('does not offer it for a failure that has nothing to do with the passphrase', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'write-failed' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'watched him')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+
+    expect(screen.getByTestId('amend-error')).toBeInTheDocument()
+    expect(screen.queryByTestId('amend-passphrase-recovery')).not.toBeInTheDocument()
+  })
+
+  it('clears the error when another day is opened', async () => {
+    const user = userEvent.setup()
+    const p = { ...props(), attestCheckIn: vi.fn().mockResolvedValue({ ok: false, error: 'bad-passphrase' }) }
+    render(<AmendWeekGrid {...p} />)
+
+    await user.type(screen.getByTestId('amend-passphrase'), 'misremembered')
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-29'))
+    await user.click(screen.getByTestId('amend-showed-up'))
+    expect(screen.getByTestId('amend-error')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('amend-cell-lane-1-2026-09-30'))
+
+    expect(screen.queryByTestId('amend-error')).not.toBeInTheDocument()
+  })
 })

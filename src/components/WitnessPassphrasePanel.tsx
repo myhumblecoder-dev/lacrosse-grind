@@ -57,6 +57,13 @@ export default function WitnessPassphrasePanel({
         phone and his own week.
       </p>
 
+      {isSet && (
+        <p data-testid="witness-passphrase-forgot" className="text-sm text-zinc-400">
+          Forgotten the one you set? Just put a new one in below — you do not need
+          the old one, and nothing you have already amended is affected.
+        </p>
+      )}
+
       <label htmlFor="witness-passphrase-input" className="block text-sm text-zinc-400">
         Passphrase{" "}
         <span className="text-zinc-500">

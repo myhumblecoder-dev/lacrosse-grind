@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import Link from "next/link"
 import type { AmendDayState, AmendLaneWeek } from "@/lib/amendWeek"
 
 interface AmendInput {
@@ -96,7 +97,9 @@ export default function AmendWeekGrid({
   const [passphrase, setPassphrase] = useState("")
   const [openCell, setOpenCell] = useState<string | null>(null)
   const [note, setNote] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  // The CODE, not the copy: a passphrase problem earns a way out of it, and
+  // only the code distinguishes that from a write that simply failed.
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const close = () => {
@@ -106,21 +109,18 @@ export default function AmendWeekGrid({
 
   const run = (action: () => Promise<{ ok: boolean; error?: string }>) =>
     startTransition(async () => {
-      setError(null)
+      setErrorCode(null)
       try {
         const result = await action()
         if (result.ok) {
           close()
         } else {
-          setError(
-            ERROR_COPY[result.error ?? ""] ??
-              "That didn't go through — give it another go."
-          )
+          setErrorCode(result.error ?? "unknown")
         }
       } catch {
         // A rejected transition otherwise escalates to the nearest error
         // boundary and takes the page down with it.
-        setError("Something went wrong — give it another go.")
+        setErrorCode("threw")
       }
     })
 
@@ -164,7 +164,7 @@ export default function AmendWeekGrid({
                   data-testid={`amend-cell-${id}`}
                   disabled={!day.amendable || isPending}
                   onClick={() => {
-                    setError(null)
+                    setErrorCode(null)
                     setNote("")
                     setOpenCell(openCell === id ? null : id)
                   }}
@@ -334,10 +334,28 @@ export default function AmendWeekGrid({
         </div>
       ))}
 
-      {error && (
-        <p data-testid="amend-error" className="text-sm text-amber-300">
-          {error}
-        </p>
+      {errorCode && (
+        <div className="space-y-1">
+          <p data-testid="amend-error" className="text-sm text-amber-300">
+            {ERROR_COPY[errorCode] ?? "That didn't go through — give it another go."}
+          </p>
+          {/* Forgetting the passphrase is not a lockout — it can be replaced
+              without the old one — but nothing said so, which made it one in
+              practice. The way out belongs at the moment of being stuck. */}
+          {(errorCode === "bad-passphrase" || errorCode === "no-passphrase") && (
+            <p className="text-sm text-zinc-400">
+              Forgotten it?{" "}
+              <Link
+                href="/account"
+                data-testid="amend-passphrase-recovery"
+                className="underline hover:text-zinc-200"
+              >
+                Set a new one on the Account page
+              </Link>{" "}
+              — you will not need the old one.
+            </p>
+          )}
+        </div>
       )}
     </div>
   )
