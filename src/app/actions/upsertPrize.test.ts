@@ -41,7 +41,7 @@ describe('upsertPrize', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
-vi.mocked(requirePlayerId).mockResolvedValue('p1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
   })
 
   it('the upsert keys on the signed-in user', async () => {

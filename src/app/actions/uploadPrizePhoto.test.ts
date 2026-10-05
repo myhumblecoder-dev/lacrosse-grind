@@ -58,7 +58,7 @@ describe('uploadPrizePhoto', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(USER_ID)
-vi.mocked(requirePlayerId).mockResolvedValue('p1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     // Default: hostnames resolve to an ordinary public address.
     vi.mocked(resolveHost).mockResolvedValue(['93.184.216.34'])
   })
@@ -109,7 +109,7 @@ vi.mocked(requirePlayerId).mockResolvedValue('p1')
     
     const callArgs = vi.mocked(put).mock.calls[0]
     const pathname = callArgs[0] as string
-    expect(pathname.startsWith(`${USER_ID}/`)).toBe(true)
+    expect(pathname.startsWith(`${USER_ID}/p1/`)).toBe(true)
   })
 
   it('uploads an image and stores the url', async () => {
@@ -307,7 +307,7 @@ vi.mocked(requirePlayerId).mockResolvedValue('p1')
       await uploadPrizePhoto(fd)
 
       const pathname = vi.mocked(put).mock.calls[0][0] as string
-      expect(pathname.startsWith(`${USER_ID}/`)).toBe(true)
+      expect(pathname.startsWith(`${USER_ID}/p1/`)).toBe(true)
       expect(pathname).not.toContain('..')
     })
 
@@ -320,7 +320,22 @@ vi.mocked(requirePlayerId).mockResolvedValue('p1')
       await uploadPrizePhoto(fd)
 
       const pathname = vi.mocked(put).mock.calls[0][0] as string
-      expect(pathname).toBe(`${USER_ID}/escape.png`)
+      expect(pathname).toBe(`${USER_ID}/p1/escape.png`)
+    })
+
+    it('separates two kids on one account, so the same filename cannot collide', async () => {
+      const { requirePlayerId } = await import('@/lib/tenancy')
+      vi.mocked(requirePlayerId).mockResolvedValue('p2')
+
+      const fd = new FormData()
+      fd.append('photo', new File(['bytes'], 'stick.png', { type: 'image/png' }))
+      await uploadPrizePhoto(fd)
+
+      // put() defaults addRandomSuffix to false and throws rather than overwrite,
+      // and safeBlobName is deterministic — so a shared account path meant the
+      // second kid to upload `stick.png` got a raw SDK error.
+      const pathname = vi.mocked(put).mock.calls[0][0] as string
+      expect(pathname).toBe(`${USER_ID}/p2/stick.png`)
     })
   })
 })

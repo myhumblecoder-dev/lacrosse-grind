@@ -23,7 +23,7 @@ describe('resetSeason', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
-vi.mocked(requirePlayerId).mockResolvedValue('p1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
   })
 
   it('the reset is scoped to the owner', async () => {

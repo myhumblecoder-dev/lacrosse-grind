@@ -28,7 +28,7 @@ describe('deleteLane', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
-vi.mocked(requirePlayerId).mockResolvedValue('p1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
   })
 
   it('another user\'s lane id returns not-found without deleting', async () => {

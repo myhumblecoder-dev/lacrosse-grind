@@ -68,52 +68,106 @@ const makePlayer = (overrides: Partial<Player> = {}): Player =>
 describe('ensureDefaultPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: nothing stranded, and the player has no prize of their own.
+    vi.mocked(prisma.prize.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.prize.findFirst).mockResolvedValue(null)
   })
 
-  it('returns existing playerId without creating when player row exists', async () => {
-    const existingPlayer = makePlayer({ id: 'player-existing', userId: 'user-123' })
-    vi.mocked(prisma.player.findFirst).mockResolvedValue(existingPlayer)
+  it('returns the existing playerId without creating another', async () => {
+    vi.mocked(prisma.player.findFirst).mockResolvedValue(
+      makePlayer({ id: 'player-existing', userId: 'user-123' })
+    )
 
     const result = await ensureDefaultPlayer()
 
     expect(result).toEqual({ playerId: 'player-existing' })
     expect(prisma.player.create).not.toHaveBeenCalled()
-    expect(prisma.lane.updateMany).not.toHaveBeenCalled()
-    expect(prisma.prize.updateMany).not.toHaveBeenCalled()
   })
 
-  it('creates player and binds orphan lanes and prizes when no players exist', async () => {
-    const newPlayer = makePlayer({ id: 'player-new', userId: 'user-123', name: 'Player 1', isDefault: true })
+  it('creates the first player and binds orphan lanes', async () => {
     vi.mocked(prisma.player.findFirst).mockResolvedValue(null)
-    vi.mocked(prisma.player.create).mockResolvedValue(newPlayer)
+    vi.mocked(prisma.player.create).mockResolvedValue(
+      makePlayer({ id: 'player-new', userId: 'user-123', name: 'Player 1', isDefault: true })
+    )
 
     const result = await ensureDefaultPlayer()
 
     expect(result).toEqual({ playerId: 'player-new' })
     expect(prisma.player.create).toHaveBeenCalledWith({
-      data: {
-        userId: 'user-123',
-        name: 'Player 1',
-        isDefault: true,
-      },
+      data: { userId: 'user-123', name: 'Player 1', isDefault: true },
     })
     expect(prisma.lane.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-123', playerId: null },
       data: { playerId: 'player-new' },
     })
-    expect(prisma.prize.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'user-123', playerId: null },
-      data: { playerId: 'player-new' },
-    })
   })
 
-  it('does not call updateMany when player already exists', async () => {
-    const existingPlayer = makePlayer({ id: 'player-existing', userId: 'user-123' })
-    vi.mocked(prisma.player.findFirst).mockResolvedValue(existingPlayer)
+  describe('adopting rows stranded without a player', () => {
+    // The backfill used to run ONLY on the create branch. A prize saved after the
+    // default player existed got playerId null from the old upsertPrize, and was
+    // then invisible to every reader and writer. So it runs on both branches now.
+    it('binds orphan lanes even when the player already existed', async () => {
+      vi.mocked(prisma.player.findFirst).mockResolvedValue(
+        makePlayer({ id: 'player-existing', userId: 'user-123' })
+      )
 
-    await ensureDefaultPlayer()
+      await ensureDefaultPlayer()
 
-    expect(prisma.lane.updateMany).not.toHaveBeenCalled()
-    expect(prisma.prize.updateMany).not.toHaveBeenCalled()
+      expect(prisma.lane.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-123', playerId: null },
+        data: { playerId: 'player-existing' },
+      })
+    })
+
+    it('adopts a stranded prize onto the existing player', async () => {
+      vi.mocked(prisma.player.findFirst).mockResolvedValue(
+        makePlayer({ id: 'player-existing', userId: 'user-123' })
+      )
+      vi.mocked(prisma.prize.findFirst).mockResolvedValue(makePrize({ id: 'prize-orphan' }))
+
+      await ensureDefaultPlayer()
+
+      expect(prisma.prize.update).toHaveBeenCalledWith({
+        where: { id: 'prize-orphan' },
+        data: { playerId: 'player-existing' },
+      })
+    })
+
+    it('adopts one prize by id, never updateMany — Prize.playerId is unique', async () => {
+      vi.mocked(prisma.player.findFirst).mockResolvedValue(
+        makePlayer({ id: 'player-existing', userId: 'user-123' })
+      )
+      vi.mocked(prisma.prize.findFirst).mockResolvedValue(makePrize({ id: 'prize-orphan' }))
+
+      await ensureDefaultPlayer()
+
+      // updateMany across two orphans would set the same playerId on both and
+      // trip the unique index — and this runs from the root layout, so the throw
+      // would blank every page for the account.
+      expect(prisma.prize.updateMany).not.toHaveBeenCalled()
+      expect(prisma.prize.update).toHaveBeenCalledOnce()
+    })
+
+    it('leaves a stranded prize alone when the player already has one', async () => {
+      vi.mocked(prisma.player.findFirst).mockResolvedValue(
+        makePlayer({ id: 'player-existing', userId: 'user-123' })
+      )
+      vi.mocked(prisma.prize.findUnique).mockResolvedValue(makePrize({ id: 'prize-own' }))
+      vi.mocked(prisma.prize.findFirst).mockResolvedValue(makePrize({ id: 'prize-orphan' }))
+
+      await ensureDefaultPlayer()
+
+      expect(prisma.prize.update).not.toHaveBeenCalled()
+    })
+
+    it('writes nothing to the prize when none is stranded', async () => {
+      vi.mocked(prisma.player.findFirst).mockResolvedValue(
+        makePlayer({ id: 'player-existing', userId: 'user-123' })
+      )
+
+      await ensureDefaultPlayer()
+
+      expect(prisma.prize.update).not.toHaveBeenCalled()
+    })
   })
 })

@@ -171,6 +171,12 @@ model Prize {
   seasonStart DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  // Dropping @unique from userId dropped the only index on it, and two callers
+  // still filter by it: deleteAccount's deleteMany and ensureDefaultPlayer's
+  // orphan backfill. Every other model carries an explicit index for its
+  // tenancy column; this keeps Prize consistent with them.
+  @@index([userId])
 }
 
 // Player — a kid tracked under one account (epic 6 multi-player). Private to

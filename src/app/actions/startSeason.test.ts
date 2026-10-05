@@ -31,7 +31,7 @@ describe('startSeason', () => {
     vi.setSystemTime(new Date(Date.UTC(2024, 4, 20)))
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(userId)
-vi.mocked(requirePlayerId).mockResolvedValue('p1')
+    vi.mocked(requirePlayerId).mockResolvedValue('p1')
     vi.mocked(prisma.bossBattle.count).mockResolvedValue(0)
   })
 
