@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma as db } from '@/lib/db'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import type { Prize } from '@prisma/client'
 import { uploadPrizePhoto } from './uploadPrizePhoto'
 import { put, del } from '@vercel/blob'
@@ -25,6 +25,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/tenancy', () => ({
   requireUserId: vi.fn(),
+  requirePlayerId: vi.fn(),
 }))
 
 vi.mock('@vercel/blob', () => ({
@@ -57,6 +58,7 @@ describe('uploadPrizePhoto', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue(USER_ID)
+vi.mocked(requirePlayerId).mockResolvedValue('p1')
     // Default: hostnames resolve to an ordinary public address.
     vi.mocked(resolveHost).mockResolvedValue(['93.184.216.34'])
   })
@@ -73,10 +75,10 @@ describe('uploadPrizePhoto', () => {
     await uploadPrizePhoto(formData)
 
     expect(db.prize.findUnique).toHaveBeenCalledWith({
-      where: { userId: USER_ID },
+      where: { playerId: 'p1' },
     })
     expect(db.prize.update).toHaveBeenCalledWith({
-      where: { userId: USER_ID },
+      where: { playerId: 'p1' },
       data: { photoUrl: mockUrl },
     })
   })
@@ -178,7 +180,7 @@ describe('uploadPrizePhoto', () => {
 
       expect(result).toEqual({ ok: true, url: 'https://blob.test/prize/ps5.png' })
       expect(db.prize.update).toHaveBeenCalledWith({
-        where: { userId: USER_ID },
+        where: { playerId: 'p1' },
         data: { photoUrl: 'https://blob.test/prize/ps5.png' },
       })
     })

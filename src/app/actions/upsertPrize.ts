@@ -1,10 +1,19 @@
 import { prisma as db } from "@/lib/db";
 import { prizeSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 
+/**
+ * Save the thing this player is training for.
+ *
+ * Keyed on the PLAYER, not the account. Keyed on `userId` it could only ever
+ * maintain one row per account: a second kid's prize found the first kid's row
+ * and overwrote it, and because the create never set `playerId`, the prize page —
+ * which reads by `playerId` — then found nothing for either of them.
+ */
 export async function upsertPrize(input: unknown): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
   const parsed = prizeSchema.safeParse(input);
 
   if (!parsed.success) {
@@ -20,7 +29,7 @@ export async function upsertPrize(input: unknown): Promise<{ ok: true; id: strin
 
   if (!("photoUrl" in inputAsObj)) {
     const existing = await db.prize.findUnique({
-      where: { userId },
+      where: { playerId },
       select: { photoUrl: true },
     });
     photoUrl = existing?.photoUrl ?? null;
@@ -32,11 +41,12 @@ export async function upsertPrize(input: unknown): Promise<{ ok: true; id: strin
   };
 
   const prize = await db.prize.upsert({
-    where: { userId },
+    where: { playerId },
     update: updateData,
     create: {
       ...updateData,
       userId,
+      playerId,
     },
   });
 

@@ -1,7 +1,7 @@
 import { put, del } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma as db } from "@/lib/db";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 import { assertFetchableUrl } from "@/lib/fetchableUrl";
 import { resolveHost } from "@/lib/resolveHost";
 
@@ -130,6 +130,7 @@ async function fetchRemoteImage(
 
 export async function uploadPrizePhoto(formData: FormData): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
   const file = formData.get("photo");
   const remoteUrl = formData.get("photoUrl");
 
@@ -160,12 +161,14 @@ export async function uploadPrizePhoto(formData: FormData): Promise<{ ok: true; 
     const newUrl = blob.url;
 
     // 2. Update the database
+    // The blob path stays keyed on userId — that is the family's namespace — but
+    // the row this photo lands on is the active player's.
     const prize = await db.prize.findUnique({
-      where: { userId },
+      where: { playerId },
     });
 
     await db.prize.update({
-      where: { userId },
+      where: { playerId },
       data: { photoUrl: newUrl },
     });
 

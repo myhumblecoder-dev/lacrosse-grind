@@ -1,12 +1,14 @@
 import { prisma as db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/tenancy";
+import { requireUserId, requirePlayerId } from "@/lib/tenancy";
 
 export async function deletePrize(): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
+  const playerId = await requirePlayerId(userId);
   try {
+    // This player's prize only. Scoped to the account it deleted every kid's.
     const { count } = await db.prize.deleteMany({
-      where: { userId },
+      where: { playerId },
     });
 
     if (count === 0) {

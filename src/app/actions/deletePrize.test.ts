@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { prisma as db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
-import { requireUserId } from '@/lib/tenancy'
+import { requireUserId, requirePlayerId } from '@/lib/tenancy'
 import { deletePrize } from './deletePrize'
 
 vi.mock('@/lib/db', () => ({
@@ -18,12 +18,14 @@ vi.mock('next/cache', () => ({
 
 vi.mock('@/lib/tenancy', () => ({
   requireUserId: vi.fn(),
+  requirePlayerId: vi.fn(),
 }))
 
 describe('deletePrize', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireUserId).mockResolvedValue('u1')
+vi.mocked(requirePlayerId).mockResolvedValue('p1')
   })
 
   it('deleting with no prize row returns not-found', async () => {
@@ -32,7 +34,7 @@ describe('deletePrize', () => {
     const res = await deletePrize()
 
     expect(db.prize.deleteMany).toHaveBeenCalledWith({
-      where: { userId: 'u1' },
+      where: { playerId: 'p1' },
     })
     expect(res).toEqual({ ok: false, error: 'not-found' })
   })
@@ -43,7 +45,7 @@ describe('deletePrize', () => {
     const res = await deletePrize()
 
     expect(db.prize.deleteMany).toHaveBeenCalledWith({
-      where: { userId: 'u1' },
+      where: { playerId: 'p1' },
     })
     expect(revalidatePath).toHaveBeenCalledWith('/prize')
     expect(res).toEqual({ ok: true })
